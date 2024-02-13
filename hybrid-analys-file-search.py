@@ -1,4 +1,4 @@
-# This python script takes a csv file with a column containing executables and searches the Hybrid Analysis API endpoint api/v2 /search/terms for hits. This is useful for gathering sha256 hashes, etc
+# This python script takes a csv file with a column containing executables and searches the Hybrid Analysis API endpoint api/v2 /search/terms for hits and outputs the json 200 response https://www.hybrid-analysis.com/docs/api/v2 . This is useful for gathering sha256 hashes, etc. 
 
 # Load the required modules
 
