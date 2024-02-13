@@ -9,8 +9,6 @@ import os
 # Load the API Key from the env variable path. for macOS, in terminal cmdline: echo 'export HA_API_KEY="<api-key>"' >> ~/.zshrc then source ~/.zshrc
 
 api_key = os.getenv('HA_API_KEY')
-if not api_key:
-    raise ValueError("API Key not found. Please set the api key in the env path")
 
 # The Hybrid Analysis API endpoint.
 api_endpoint = 'https://www.hybrid-analysis.com/api/v2'
