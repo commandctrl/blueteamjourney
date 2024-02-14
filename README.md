@@ -1,2 +1,2 @@
 # blueteamjourney
-This repo contains scripts useful for Blue Team, OSINT, and threat intelligence efforts. I am not a dev, by all means. I've used stackoverflow, ChatGPT, and other sources to come up with working scripts to get Incident Response actions/task completed. Scripts can be build upon further down the road.
+This repo contains scripts useful for Blue Team, OSINT, and threat intelligence efforts. I am not a dev, by all means. Here you'll find a collection of scripts that were put together derived from Incident Response actions/task completion. Scripts can be build upon further down the road.
