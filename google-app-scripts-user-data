@@ -1,0 +1,31 @@
+function updateSheet1UserStatus() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet1 = ss.getSheetByName("Sheet1");
+  var sheet2 = ss.getSheetByName("Sheet2");
+ 
+  // Fetching the user names and user status data ranges from both sheets
+  var userNamesSheet1Range = sheet1.getRange("H2:H" + sheet1.getLastRow());
+  var userNamesSheet1 = userNamesSheet1Range.getValues();
+ 
+  var sheet2DataRange = sheet2.getRange("A2:E" + sheet2.getLastRow()); // Assuming user_status is in column E of Sheet2
+  var sheet2Data = sheet2DataRange.getValues();
+ 
+  // Creating a map for Sheet2 data for quick access, using user name as the key and user_status as the value
+  var sheet2Map = new Map();
+  sheet2Data.forEach(function(row) {
+    sheet2Map.set(row[0], row[4]); // row[0] is the user name, row[4] is user_status
+  });
+ 
+  // Loop through Sheet1 data and update missing user_status based on user names
+  userNamesSheet1.forEach(function(row, index) {
+    var userName = row[0];
+    if (userName && sheet2Map.has(userName)) { // If the user name is found in Sheet2
+      var userStatus = sheet2Map.get(userName);
+      // Calculate the actual row index in Sheet1 (offset by 2 due to header and 0-based index)
+      var actualRowIndex = index + 2;
+      // Define the cell to update user_status in Sheet1 (column L)
+      var targetCell = sheet1.getRange("L" + actualRowIndex);
+      targetCell.setValue(userStatus);
+    }
+  });
+}
