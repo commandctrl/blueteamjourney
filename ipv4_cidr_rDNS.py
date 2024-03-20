@@ -10,7 +10,7 @@ cidr_block = '77.90.185.0/24'
 
 ip_addresses = [str(ip) for ip in ipaddress.ip_network(cidr_block)]
 
-csv_file = '/Users/austinpham/Documents/rDNS_lookup_results.csv'
+csv_file = '/Users/<user>/Documents/rDNS_lookup_results.csv'
 with open(csv_file, mode='w', newline='') as file:
     writer = csv.writer(file)
     writer.writerow(['IP address','Defanged Domain'])
