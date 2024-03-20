@@ -1,0 +1,34 @@
+function updateSheet1FromSheet2() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet1 = ss.getSheetByName("Sheet1");
+  var sheet2 = ss.getSheetByName("Sheet2");
+ 
+  // Get data ranges
+  var dataSheet1 = sheet1.getRange("C2:K" + sheet1.getLastRow()).getValues();
+  var computerNamesSheet2 = sheet2.getRange("A2:A" + sheet2.getLastRow()).getValues().flat();
+  var dataSheet2 = sheet2.getRange("A2:E" + sheet2.getLastRow()).getValues();
+ 
+  // Convert Sheet2 data into a lookup map for easier access
+  var mapSheet2 = {};
+  dataSheet2.forEach(function(row) {
+    // The computer name is the key, and the array of user information is the value
+    mapSheet2[row[0]] = row.slice(1);
+  });
+ 
+  // Iterate through Sheet1 data, check for empty user information fields, and update them
+  var updates = [];
+  dataSheet1.forEach(function(row, index) {
+    var computerName = row[0]; // Computer name is in column C of Sheet1
+    if (computerName && (row[5] === "" || row[6] === "" || row[7] === "" || row[8] === "")) { // Check if any user detail is empty
+      if (mapSheet2.hasOwnProperty(computerName)) { // Check if the computer name exists in the map
+        updates.push({row: index + 2, values: mapSheet2[computerName]}); // Prepare the update
+      }
+    }
+  });
+ 
+  // Execute the updates in Sheet1
+  updates.forEach(function(update) {
+    // Start updating from column H, row number is dynamic based on the computer name's row in Sheet1
+    sheet1.getRange(update.row, 8, 1, 4).setValues([update.values]); // Update columns H to K
+  });
+}
