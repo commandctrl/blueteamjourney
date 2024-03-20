@@ -23,5 +23,5 @@ with open(csv_file, mode='w', newline='') as file:
             writer.writerow([ip, defanged_domain])
         except socket.herror:
             print(f"{ip}: No reverse DNS record found")
-        time.sleep(30)
+        time.sleep(5)
 print(f"Results have been savd to {csv_file}")
