@@ -2,7 +2,7 @@
 
 # path to folder
 
-search_dir="/Users/austinpham/Downloads/sir0115154"
+search_dir="/Users/<user>/Downloads/<folder>"
 
 # unzip all zips in folder path
 
