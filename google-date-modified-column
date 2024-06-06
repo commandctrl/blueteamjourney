@@ -2,12 +2,14 @@ function onEdit(e) {
   var sheet = e?.source?.getActiveSheet();
   var editedRow = e?.range?.getRow();
   var editedColumn = e?.range?.getColumn();
-  var dateModifiedColumn = 11; // Change 2 to the column number where you want the date to appear. Column B = 2, C = 3, etc.
-  var watchColumn = 10; // Change 1 to the column number you want to watch for changes. Column A = 1, B = 2, etc.
-  var sheetName = "sheetname"; // Specify the sheet name you want to monitor
+  var dateModifiedColumn = 11; // Assuming you want to set the date in column K.
+  var watchColumn = 10; // Watching column J for edits.
+  var sheetName = "AUP_Violation"; // Specify the sheet name you want to monitor.
 
-  // Check if the edit is on the specified sheet
+  // Check if the edit is on the specified sheet and in the watchColumn
   if (sheet?.getName() === sheetName && editedColumn === watchColumn) {
-    sheet.getRange(editedRow, dateModifiedColumn).setValue(new Date());
+    var currentTime = new Date();
+    var formattedTime = Utilities.formatDate(currentTime, "GMT", "yyyy-MM-dd'T'HH:mm:ss'Z'"); // Format the current time in UTC.
+    sheet.getRange(editedRow, dateModifiedColumn).setValue(formattedTime); // Set the formatted time in the dateModifiedColumn.
   }
 }
