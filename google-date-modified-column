@@ -4,7 +4,7 @@ function onEdit(e) {
   var editedColumn = e?.range?.getColumn();
   var dateModifiedColumn = 11; // Assuming you want to set the date in column K.
   var watchColumn = 10; // Watching column J for edits.
-  var sheetName = "AUP_Violation"; // Specify the sheet name you want to monitor.
+  var sheetName = "<sheet>"; // Specify the sheet name you want to monitor.
 
   // Check if the edit is on the specified sheet and in the watchColumn
   if (sheet?.getName() === sheetName && editedColumn === watchColumn) {
