@@ -1,11 +1,13 @@
 function onEdit(e) {
-  var sheet = e.source.getActiveSheet();
-  var editedRow = e.range.getRow();
-  var editedColumn = e.range.getColumn();
-  var dateModifiedColumn = 2; // Change 2 to the column number where you want the date to appear. Column B = 2, C = 3, etc.
-  var watchColumn = 1; // Change 1 to the column number you want to watch for changes. Column A = 1, B = 2, etc.
+  var sheet = e?.source?.getActiveSheet();
+  var editedRow = e?.range?.getRow();
+  var editedColumn = e?.range?.getColumn();
+  var dateModifiedColumn = 11; // Change 2 to the column number where you want the date to appear. Column B = 2, C = 3, etc.
+  var watchColumn = 10; // Change 1 to the column number you want to watch for changes. Column A = 1, B = 2, etc.
+  var sheetName = "sheetname"; // Specify the sheet name you want to monitor
 
-  if (editedColumn === watchColumn) {
+  // Check if the edit is on the specified sheet
+  if (sheet?.getName() === sheetName && editedColumn === watchColumn) {
     sheet.getRange(editedRow, dateModifiedColumn).setValue(new Date());
   }
 }
