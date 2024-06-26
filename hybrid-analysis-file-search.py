@@ -6,7 +6,7 @@ import requests
 import csv
 import os
 
-# Load the API Key from the env variable path. for macOS, in terminal cmdline: echo 'export HA_API_KEY="<api-key>"' >> ~/.zshrc then source ~/.zshrc or key vault
+# Load the API Key from the env variable path. for macOS, in terminal cmdline: echo 'export HA_API_KEY="<api-key>"' >> ~/.zshrc then source ~/.zshrc or utilize a key vault solution
 
 api_key = os.getenv('HA_API_KEY')
 
