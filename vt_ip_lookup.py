@@ -2,6 +2,8 @@ import requests
 import csv
 import os
 
+# If you run into a homebrew python link problem with the local env, install requests in a python venv before running this script.
+
 # Retrieve the API key from an environment variable
 API_KEY = os.getenv('VIRUSTOTAL_API_KEY')
 
@@ -9,10 +11,10 @@ if not API_KEY:
     raise ValueError("Please set the VIRUSTOTAL_API_KEY environment variable with your API key")
 
 # The file containing the list of IPs
-IP_LIST_FILE = '/Users/austinpham/Documents/ips_to_vt.txt'
+IP_LIST_FILE = '/Users/<user>/Documents/ips_to_vt.txt'
 
 # The CSV file where the results will be saved
-OUTPUT_CSV_FILE = '/Users/austinpham/Documents/ip_reputation_results.csv'
+OUTPUT_CSV_FILE = '/Users/<user>/Documents/ip_reputation_results.csv'
 
 def check_ip_reputation(ip):
     url = f'https://www.virustotal.com/api/v3/ip_addresses/{ip}'
