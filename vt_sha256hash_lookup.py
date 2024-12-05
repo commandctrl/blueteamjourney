@@ -9,10 +9,10 @@ if not API_KEY:
     raise ValueError("Please set the VIRUSTOTAL_API_KEY environment variable with your API key")
 
 # The file containing the list of SHA-256 hashes
-HASH_LIST_FILE = '/Users/austinpham/Documents/hashes_to_vt.txt'
+HASH_LIST_FILE = '/Users/<user>/Documents/hashes_to_vt.txt'
 
 # The CSV file where the results will be saved
-OUTPUT_CSV_FILE = '/Users/austinpham/Documents/hash_reputation_results.csv'
+OUTPUT_CSV_FILE = '/Users/<user>/Documents/hash_reputation_results.csv'
 
 def check_hash_reputation(hash_value):
     url = f'https://www.virustotal.com/api/v3/files/{hash_value}'
