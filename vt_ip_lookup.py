@@ -50,7 +50,7 @@ def main():
                     vt_link  # Add the VT link to the row
                 ])
             else:
-                writer.writerow([ip, 'Error', 'Error', 'Error', 'Error', 'Error'])
+                writer.writerow([ip, 'Error', 'Error', 'Error', 'Error', 'Error',''])
 
 if __name__ == '__main__':
     main()
