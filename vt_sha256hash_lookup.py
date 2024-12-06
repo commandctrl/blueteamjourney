@@ -31,24 +31,31 @@ def main():
     
     with open(OUTPUT_CSV_FILE, 'w', newline='') as file:
         writer = csv.writer(file)
-        # Adjust the column headers based on the information you want from the hash lookup
-        writer.writerow(['SHA-256', 'Harmless', 'Malicious', 'Suspicious', 'Undetected', 'Timeout'])
+        # Include a column for the VT Link
+        writer.writerow(['SHA-256', 'Harmless', 'Malicious', 'Suspicious', 'Undetected', 'Timeout', 'VT Link'])
         
         for hash_value in hashes:
             result = check_hash_reputation(hash_value)
             if result:
                 attributes = result['data']['attributes']
                 last_analysis_stats = attributes['last_analysis_stats']
+                # Check if there are any malicious hits
+                malicious_hits = last_analysis_stats.get('malicious', 0)
+                vt_link = f"https://www.virustotal.com/gui/file/{hash_value}" if malicious_hits > 0 else ""
                 writer.writerow([
                     hash_value,
                     last_analysis_stats.get('harmless', 0),
-                    last_analysis_stats.get('malicious', 0),
+                    malicious_hits,
                     last_analysis_stats.get('suspicious', 0),
                     last_analysis_stats.get('undetected', 0),
-                    last_analysis_stats.get('timeout', 0)
+                    last_analysis_stats.get('timeout', 0),
+                    vt_link  # Add the VT link to the row
                 ])
             else:
-                writer.writerow([hash_value, 'Error', 'Error', 'Error', 'Error', 'Error'])
+                writer.writerow([hash_value, 'Error', 'Error', 'Error', 'Error', 'Error', ''])
+
+if __name__ == '__main__':
+    main()
 
 if __name__ == '__main__':
     main()
