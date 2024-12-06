@@ -46,7 +46,8 @@ def main():
                     last_analysis_stats.get('malicious', 0),
                     last_analysis_stats.get('suspicious', 0),
                     last_analysis_stats.get('undetected', 0),
-                    last_analysis_stats.get('timeout', 0)
+                    last_analysis_stats.get('timeout', 0),
+                    vt_link  # Add the VT link to the row
                 ])
             else:
                 writer.writerow([ip, 'Error', 'Error', 'Error', 'Error', 'Error'])
