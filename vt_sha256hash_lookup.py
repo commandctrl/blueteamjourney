@@ -45,14 +45,15 @@ def main():
                 writer.writerow([
                     hash_value,
                     last_analysis_stats.get('harmless', 0),
-                    malicious_hits,
+                    last_analysis_stats.get('malicious', 0),
                     last_analysis_stats.get('suspicious', 0),
                     last_analysis_stats.get('undetected', 0),
                     last_analysis_stats.get('timeout', 0),
-                    vt_link  # Add the VT link to the row
+                    vt_link  # Now vt_link is defined and can be used here
                 ])
             else:
-                writer.writerow([hash_value, 'Error', 'Error', 'Error', 'Error', 'Error', ''])
+                # Make sure to handle the case where vt_link would be used but no result is available
+                writer.writerow([ip, 'Error', 'Error', 'Error', 'Error', 'Error', ''])
 
 if __name__ == '__main__':
     main()
