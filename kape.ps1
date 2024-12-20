@@ -1,4 +1,4 @@
-# Remote collection of Windows Forensic Artifacts using KAPE and !SANS_Triage. Prerequisites require Targets folder and Kape.exe in a zip.
+# Remote collection of Windows Forensic Artifacts using KAPE and !SANS_Triage. Prerequisites require Targets folder and Kape.exe in a zip. Sourced from https://github.com/DFIRanjith/Scripts/blob/main/kape.ps1
 
 $zipFilePath = "C:\kape.zip"
 $extractPath = "C:\KAPE"
