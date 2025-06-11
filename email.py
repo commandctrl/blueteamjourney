@@ -19,6 +19,8 @@ for _, row in df.iterrows():
 tell application "Microsoft Outlook"
     set newMessage to make new outgoing message with properties {{subject:"{subject_escaped}", content:"{body_escaped}"}}
     make new recipient at newMessage with properties {{email address:{{address:"{recipient_email}"}}}}
+    make new recipient at newMessage with properties {{email address:{{address:"{cc_email}"}}, type:cc recipient}}
+
     send newMessage
 end tell
 '''
