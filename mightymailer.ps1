@@ -1,5 +1,5 @@
 <#
-This script utilizes Outlook to send an email to a list of users based on UserName, MachineName, ProcessName from a csv file.
+This script utilizes Outlook to send an email to a list of users based on UserName, MachineName, ProcessName from a csv file. This script only works on Windows OS due to -com dependencies
 #>
 
 function SendNotification
