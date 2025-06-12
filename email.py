@@ -10,6 +10,8 @@ for _, row in df.iterrows():
     body_text = f"Hello {row['name']},\n\nThis is a test email sent via AppleScript through Outlook on Mac.\n\nBest regards,\nAustin"
 
     recipient_email = row['email']
+    cc_email = row['cc_email']
+
 
     # Escape double quotes in subject and body for AppleScript
     subject_escaped = subject.replace('"', '\\"')
