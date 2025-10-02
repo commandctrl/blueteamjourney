@@ -2,7 +2,7 @@ import pandas as pd
 import subprocess
 
 # Load your CSV file (must have columns: name, email)
-df = pd.read_csv('/Users/austinpham/Downloads/test.csv')
+df = pd.read_csv('/Users/user/Downloads/test.csv')
 
 for _, row in df.iterrows():
     subject = "Personalized Greeting"
