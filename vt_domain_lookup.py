@@ -9,7 +9,7 @@ if not API_KEY:
     raise ValueError("Please set the VIRUSTOTAL_API_KEY environment variable with your API key")
 
 # The file containing the list of SHA-256 hashes
-DOMAIN_LIST_FILE = '/Users/<user>/Documents/hashes_to_vt.txt'
+DOMAIN_LIST_FILE = '/Users/<user>/Documents/domains_to_vt.txt'
 
 # The CSV file where the results will be saved
 OUTPUT_CSV_FILE = '/Users/<user>/Documents/domain_reputation_results.csv'
