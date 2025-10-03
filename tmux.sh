@@ -1,31 +1,37 @@
 #!/bin/bash
 
-# Define the session name
-SESSION_NAME="2x3_layout"
+SESSION_NAME="my_three_pane_session"
 
-# Check if the session already exists
-tmux has-session -t "${SESSION_NAME}" 2>/dev/null
+# --- Get terminal dimensions for proportional panels ---
+set -- $(stty size) # $1 = rows, $2 = columns
+TERMINAL_ROWS=$(($1 - 1)) # Account for tmux status line
+TERMINAL_COLUMNS=$2
 
-if [ $? != 0 ]; then
-  # Create a new detached session
-  tmux new-session -d -s "${SESSION_NAME}"
+# --- Create new detached session with specific dimensions ---
+tmux -2 new-session -d -s "$SESSION_NAME" -x "$TERMINAL_COLUMNS" -y "$TERMINAL_ROWS" -n "ThreePaneLayout"
 
-  # Split the first pane vertically to create a total of 2 rows
-  tmux split-window -v -t "${SESSION_NAME}:0.0"
+# --- Configure Scrolling and Mouse Support ---
+tmux set-window-option -t "$SESSION_NAME:ThreePaneLayout" mode-keys vi
+tmux set-option -t "$SESSION_NAME:ThreePaneLayout" mouse on
 
-  # Split each of the first two panes horizontally to create 2 columns
-  # This targets pane 0.0 (top left)
-  tmux split-window -h -t "${SESSION_NAME}:0.0"
-  # This targets pane 0.1 (bottom left)
-  tmux split-window -h -t "${SESSION_NAME}:0.1"
+# --- Setup the 3-pane proportional layout ---
 
-  # Split the two newly created right panes to get the third row
-  # This targets pane 0.2 (top right)
-  tmux split-window -v -t "${SESSION_NAME}:0.2"
+# 1. Split the initial window (pane 0) vertically to create the wide bottom pane.
+#    Let's say the bottom pane takes 30% of the height, leaving 70% for the top section.
+#    The new pane (pane 1, which will become our wide bottom pane) is created at the bottom.
+tmux split-window -v -p 30 -t "$SESSION_NAME:ThreePaneLayout.0" # -p 30 means the *new* pane (bottom) is 30% height
 
-  # Apply the tiled layout to ensure all panes are equal
-  tmux select-layout -t "${SESSION_NAME}:0" tiled
-fi
+# 2. Select the top pane (pane 0) to start creating the two top panes.
+tmux select-pane -t "$SESSION_NAME:ThreePaneLayout.0"
 
-# Attach to the session
-tmux attach-session -t "${SESSION_NAME}"
+# 3. Split the top pane horizontally, so the new pane (pane 2) is on the right
+#    and takes 50% of the width, leaving pane 0 on the top-left also at 50%.
+tmux split-window -h -p 50 -t "$SESSION_NAME:ThreePaneLayout.0"
+
+# 4. (Optional) Select the bottom wide pane to make it the active pane on startup,
+#    or select the top-left pane (0) or top-right pane (2) if preferred.
+tmux select-pane -t "$SESSION_NAME:ThreePaneLayout.1"
+
+
+# --- Attach to the session ---
+tmux attach -t "$SESSION_NAME"
