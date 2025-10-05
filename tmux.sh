@@ -2,9 +2,6 @@
 
 SESSION_NAME="my_three_pane_session"
 
-# Start a new detached tmux session
-tmux new-session -d -s your_session_name
-
 # Enable mouse mode for the session
 tmux send-keys -t your_session_name 'tmux set -g mouse on' C-m
 
