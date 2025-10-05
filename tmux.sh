@@ -2,6 +2,20 @@
 
 SESSION_NAME="my_three_pane_session"
 
+# Start a new detached tmux session
+tmux new-session -d -s your_session_name
+
+# Enable mouse mode for the session
+tmux send-keys -t your_session_name 'tmux set -g mouse on' C-m
+
+# Enable clipboard integration
+tmux send-keys -t your_session_name 'tmux set -g set-clipboard on' C-m
+
+# Add OS-specific copy keybinding (example with xclip for Linux)
+if command -v xclip &> /dev/null; then
+    tmux send-keys -t your_session_name 'tmux bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "xclip -in -selection clipboard"' C-m
+fi
+
 # --- Get terminal dimensions for proportional panels ---
 set -- $(stty size) # $1 = rows, $2 = columns
 TERMINAL_ROWS=$(($1 - 1)) # Account for tmux status line
