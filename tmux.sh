@@ -32,6 +32,10 @@ tmux split-window -h -p 50 -t "$SESSION_NAME:ThreePaneLayout.0"
 #    or select the top-left pane (0) or top-right pane (2) if preferred.
 tmux select-pane -t "$SESSION_NAME:ThreePaneLayout.1"
 
+# Add OS-specific copy keybinding (example with xclip for Linux)
+if command -v xclip &> /dev/null; then
+    tmux send-keys -t your_session_name 'tmux bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "xclip -in -selection clipboard"' C-m
+fi
 
 # --- Attach to the session ---
 tmux attach -t "$SESSION_NAME"
