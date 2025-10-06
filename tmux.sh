@@ -2,16 +2,22 @@
 
 SESSION_NAME="my_three_pane_session"
 
-# Enable mouse mode for the session
-tmux send-keys -t your_session_name 'tmux set -g mouse on' C-m
+#brew install reattach-to-user-namespace
+# Enable mouse mode for pane selection, resizing, and scrolling
+set -g mouse on
+
+# Use vim keybindings in copy mode
+setw -g mode-keys vi
 
 # Enable clipboard integration
-tmux send-keys -t your_session_name 'tmux set -g set-clipboard on' C-m
+set -g set-clipboard on
 
-# Add OS-specific copy keybinding (example with xclip for Linux)
-if command -v xclip &> /dev/null; then
-    tmux send-keys -t your_session_name 'tmux bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "xclip -in -selection clipboard"' C-m
-fi
+# Copy to macOS clipboard using pbcopy with the mouse
+bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "reattach-to-user-namespace pbcopy"
+
+# Copy to macOS clipboard using pbcopy with `y`
+bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "reattach-to-user-namespace pbcopy"
+
 
 # --- Get terminal dimensions for proportional panels ---
 set -- $(stty size) # $1 = rows, $2 = columns
@@ -43,10 +49,6 @@ tmux split-window -h -p 50 -t "$SESSION_NAME:ThreePaneLayout.0"
 #    or select the top-left pane (0) or top-right pane (2) if preferred.
 tmux select-pane -t "$SESSION_NAME:ThreePaneLayout.1"
 
-# Add OS-specific copy keybinding (example with xclip for Linux)
-if command -v xclip &> /dev/null; then
-    tmux send-keys -t your_session_name 'tmux bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "xclip -in -selection clipboard"' C-m
-fi
 
 # --- Attach to the session ---
 tmux attach -t "$SESSION_NAME"
