@@ -1,0 +1,15 @@
+function onEdit(e) {
+  var sheet = e?.source?.getActiveSheet();
+  var editedRow = e?.range?.getRow();
+  var editedColumn = e?.range?.getColumn();
+  var dateModifiedColumn = 11; // Assuming you want to set the date in column K.
+  var watchColumn = 10; // Watching column J for edits.
+  var sheetName = "<sheet>"; // Specify the sheet name you want to monitor.
+
+  // Check if the edit is on the specified sheet and in the watchColumn
+  if (sheet?.getName() === sheetName && editedColumn === watchColumn) {
+    var currentTime = new Date();
+    var formattedTime = Utilities.formatDate(currentTime, "GMT", "yyyy-MM-dd'T'HH:mm:ss'Z'"); // Format the current time in UTC.
+    sheet.getRange(editedRow, dateModifiedColumn).setValue(formattedTime); // Set the formatted time in the dateModifiedColumn.
+  }
+}

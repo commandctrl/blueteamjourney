@@ -1,0 +1,31 @@
+function updateSheet1IncludingDuplicates() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet1 = ss.getSheetByName("Sheet1"); // Assuming the sheet with duplicates is named 'Sheet1'
+  var sheet2 = ss.getSheetByName("Sheet2"); // Assuming the sheet with unique computer names and user info is named 'Sheet2'
+ 
+  // Fetching the data range for both sheets
+  var sheet1DataRange = sheet1.getRange("C2:C" + sheet1.getLastRow()); // Computer names in Sheet1
+  var sheet1Data = sheet1DataRange.getValues();
+ 
+  var sheet2DataRange = sheet2.getRange("A2:E" + sheet2.getLastRow()); // Computer names and user info in Sheet2
+  var sheet2Data = sheet2DataRange.getValues();
+ 
+  // Creating a map for Sheet2 data for quick access
+  var sheet2Map = new Map();
+  sheet2Data.forEach(function(row) {
+    sheet2Map.set(row[0], row.slice(1)); // Using computer name as key, and user info array as value
+  });
+ 
+  // Loop through Sheet1 data and update missing user info based on computer names
+  sheet1Data.forEach(function(row, index) {
+    var computerName = row[0];
+    if (sheet2Map.has(computerName)) { // If the computer name is found in Sheet2
+      // Calculate the actual row index in Sheet1 (offset by 2 due to header and 0-based index)
+      var actualRowIndex = index + 2;
+      var userInfo = sheet2Map.get(computerName);
+      // Define the range to update in Sheet1 (columns H to K)
+      var targetRange = sheet1.getRange(actualRowIndex, 8, 1, 4); // Columns H to K
+      targetRange.setValues([userInfo]);
+    }
+  });
+}
