@@ -51,7 +51,7 @@ class SecureFieldComparisonGUI:
         self.root = root
         self.root.title(
             "Field & Value Comparison Tool - Secure Edition with Smart Analysis")
-        self.root.geometry("1100x850")
+        self.root.geometry("1400x900")  # Wider for table view
         self.root.configure(bg=self.COLORS['primary_bg'])
 
         # Variables with validation
@@ -177,66 +177,6 @@ class SecureFieldComparisonGUI:
             return SequenceMatcher(None, str1, str2).ratio()
         except Exception:
             return 0.0
-
-    def detect_potential_renames(self, missing_in_dev, missing_in_prod, values_prod, values_dev):
-        """
-        Detect potential field renames by comparing:
-        1. Field name similarity
-        2. Value similarity between fields
-        
-        Returns: List of potential rename matches
-        """
-        potential_renames = []
-
-        self.update_status("🔍 Detecting potential field renames...")
-
-        # For each field missing in dev, check if it might have been renamed
-        for prod_field in missing_in_dev:
-            prod_value = values_prod.get(prod_field, '')
-
-            best_matches = []
-
-            # Compare with fields only in dev
-            for dev_field in missing_in_prod:
-                dev_value = values_dev.get(dev_field, '')
-
-                # Calculate field name similarity
-                field_name_similarity = self.calculate_similarity_safe(
-                    prod_field, dev_field)
-
-                # Calculate value similarity
-                value_similarity = self.calculate_similarity_safe(
-                    prod_value, dev_value)
-
-                # Combined score (weighted: 30% field name, 70% value)
-                combined_score = (field_name_similarity *
-                                  0.3) + (value_similarity * 0.7)
-
-                # If either value similarity is high OR combined score is high, it's a potential match
-                if value_similarity >= self.VALUE_SIMILARITY_THRESHOLD or \
-                   (combined_score >= 0.7 and field_name_similarity >= self.FIELD_NAME_SIMILARITY_THRESHOLD):
-
-                    best_matches.append({
-                        'prod_field': prod_field,
-                        'dev_field': dev_field,
-                        'prod_value': prod_value,
-                        'dev_value': dev_value,
-                        'field_name_similarity': field_name_similarity,
-                        'value_similarity': value_similarity,
-                        'combined_score': combined_score,
-                        'confidence': self.calculate_confidence(field_name_similarity, value_similarity)
-                    })
-
-            # Sort by combined score and keep top matches
-            if best_matches:
-                best_matches.sort(
-                    key=lambda x: x['combined_score'], reverse=True)
-                # Only include high-confidence matches
-                for match in best_matches[:3]:  # Top 3 matches
-                    if match['combined_score'] >= 0.6:  # Minimum threshold
-                        potential_renames.append(match)
-
-        return potential_renames
 
     def analyze_field_discrepancies(self, missing_in_dev, missing_in_prod, values_prod, values_dev):
         """
@@ -489,10 +429,10 @@ class SecureFieldComparisonGUI:
             self.root, bg=self.COLORS['header_bg'], height=100)
         title_frame.pack(fill='x', pady=(0, 15))
         title_frame.pack_propagate(False)
-
+s
         title_label = tk.Label(
             title_frame,
-            text="🔍 Log Fields Comparison Tool version 1.0.0",
+            text="🔍 Log Fields Comparative Analysis Tool",
             font=('Helvetica', 28, 'bold'),
             bg=self.COLORS['header_bg'],
             fg=self.COLORS['header_text']
@@ -511,7 +451,7 @@ class SecureFieldComparisonGUI:
         # Security notice with softer colors
         security_notice = tk.Label(
             self.root,
-            text="🛡️ Compare the fields between Prod and Dev to view changes in fields",
+            text="🛡️ Compare two exports, one from production and the other from dev, to show changes in Log Fields🛡️",
             font=('Helvetica', 9),
             bg=self.COLORS['success'],
             fg='white',
@@ -561,7 +501,7 @@ class SecureFieldComparisonGUI:
             file_frame,
             textvariable=self.prod_file,
             font=('Helvetica', 10),
-            width=65,
+            width=85,  # Wider for longer paths
             bg='white',
             fg=self.COLORS['text_primary'],
             relief='solid',
@@ -575,7 +515,7 @@ class SecureFieldComparisonGUI:
             text="📂 Browse",
             command=self.on_prod_browse_click,
             bg=self.BTN_DEFAULT_BG,
-            fg=self.BTN_TEXT_COLOR,  # BLACK TEXT!
+            fg=self.BTN_TEXT_COLOR,
             font=('Helvetica', 11, 'bold'),
             cursor='hand2',
             relief='raised',
@@ -583,7 +523,7 @@ class SecureFieldComparisonGUI:
             padx=20,
             pady=10,
             activebackground=self.BTN_ACTIVE_BG,
-            activeforeground=self.BTN_TEXT_COLOR  # BLACK TEXT when clicked!
+            activeforeground=self.BTN_TEXT_COLOR
         )
         self.prod_browse_btn.grid(row=1, column=2, pady=8)
 
@@ -606,7 +546,7 @@ class SecureFieldComparisonGUI:
             file_frame,
             textvariable=self.dev_file,
             font=('Helvetica', 10),
-            width=65,
+            width=85,  # Wider for longer paths
             bg='white',
             fg=self.COLORS['text_primary'],
             relief='solid',
@@ -620,7 +560,7 @@ class SecureFieldComparisonGUI:
             text="📂 Browse",
             command=self.on_dev_browse_click,
             bg=self.BTN_DEFAULT_BG,
-            fg=self.BTN_TEXT_COLOR,  # BLACK TEXT!
+            fg=self.BTN_TEXT_COLOR,
             font=('Helvetica', 11, 'bold'),
             cursor='hand2',
             relief='raised',
@@ -628,7 +568,7 @@ class SecureFieldComparisonGUI:
             padx=20,
             pady=10,
             activebackground=self.BTN_ACTIVE_BG,
-            activeforeground=self.BTN_TEXT_COLOR  # BLACK TEXT when clicked!
+            activeforeground=self.BTN_TEXT_COLOR
         )
         self.dev_browse_btn.grid(row=2, column=2, pady=8)
 
@@ -638,7 +578,7 @@ class SecureFieldComparisonGUI:
         self.dev_browse_btn.bind('<Leave>', lambda e: self.on_button_leave(
             e, self.dev_browse_btn, self.BTN_DEFAULT_BG))
 
-        # Action buttons with BLACK TEXT - MUCH MORE VISIBLE!
+        # Action buttons with BLACK TEXT
         button_frame = tk.Frame(main_frame, bg=self.COLORS['primary_bg'])
         button_frame.pack(fill='x', pady=(0, 15))
 
@@ -648,7 +588,7 @@ class SecureFieldComparisonGUI:
             text="🔍 Compare Files",
             command=self.on_compare_click,
             bg=self.BTN_DEFAULT_BG,
-            fg=self.BTN_TEXT_COLOR,  # BLACK TEXT!
+            fg=self.BTN_TEXT_COLOR,
             font=('Helvetica', 13, 'bold'),
             width=18,
             height=2,
@@ -656,7 +596,7 @@ class SecureFieldComparisonGUI:
             relief='raised',
             borderwidth=4,
             activebackground=self.BTN_ACTIVE_BG,
-            activeforeground=self.BTN_TEXT_COLOR  # BLACK TEXT when clicked!
+            activeforeground=self.BTN_TEXT_COLOR
         )
         self.compare_button.pack(side='left', padx=5)
 
@@ -672,7 +612,7 @@ class SecureFieldComparisonGUI:
             text="📊 Export Reports",
             command=self.on_export_click,
             bg=self.BTN_DEFAULT_BG,
-            fg=self.BTN_TEXT_COLOR,  # BLACK TEXT!
+            fg=self.BTN_TEXT_COLOR,
             font=('Helvetica', 13, 'bold'),
             width=18,
             height=2,
@@ -680,7 +620,7 @@ class SecureFieldComparisonGUI:
             relief='raised',
             borderwidth=4,
             activebackground=self.BTN_ACTIVE_BG,
-            activeforeground=self.BTN_TEXT_COLOR  # BLACK TEXT when clicked!
+            activeforeground=self.BTN_TEXT_COLOR
         )
         self.export_button.pack(side='left', padx=5)
 
@@ -696,7 +636,7 @@ class SecureFieldComparisonGUI:
             text="🗑️ Clear Results",
             command=self.on_clear_click,
             bg=self.BTN_DEFAULT_BG,
-            fg=self.BTN_TEXT_COLOR,  # BLACK TEXT!
+            fg=self.BTN_TEXT_COLOR,
             font=('Helvetica', 13, 'bold'),
             width=18,
             height=2,
@@ -704,7 +644,7 @@ class SecureFieldComparisonGUI:
             relief='raised',
             borderwidth=4,
             activebackground=self.BTN_ACTIVE_BG,
-            activeforeground=self.BTN_TEXT_COLOR  # BLACK TEXT when clicked!
+            activeforeground=self.BTN_TEXT_COLOR
         )
         self.clear_button.pack(side='left', padx=5)
 
@@ -771,11 +711,20 @@ class SecureFieldComparisonGUI:
         )
         self.summary_text.pack(fill='both', expand=True, padx=5, pady=5)
 
-        # Tab 2: COMBINED Field Analysis
+        # Tab 2: SIDE-BY-SIDE TABLE VIEW (NEW!)
+        self.table_tab = tk.Frame(
+            self.notebook, bg=self.COLORS['secondary_bg'])
+        self.notebook.add(
+            self.table_tab, text="📋 Side-by-Side Field Comparison")
+
+        # Create treeview for table display
+        self.create_table_view()
+
+        # Tab 3: Detailed Field Analysis
         self.field_analysis_tab = tk.Frame(
             self.notebook, bg=self.COLORS['secondary_bg'])
         self.notebook.add(self.field_analysis_tab,
-                          text="🔍 Field Analysis (Missing & Renames)")
+                          text="🔍 Detailed Field Analysis")
 
         self.field_analysis_text = scrolledtext.ScrolledText(
             self.field_analysis_tab,
@@ -790,30 +739,118 @@ class SecureFieldComparisonGUI:
         )
         self.field_analysis_text.pack(fill='both', expand=True, padx=5, pady=5)
 
-        # Tab 3: Value Differences for Common Fields
-        self.diff_tab = tk.Frame(self.notebook, bg=self.COLORS['secondary_bg'])
-        self.notebook.add(
-            self.diff_tab, text="📝 Value Differences (Common Fields)")
-
-        self.diff_text = scrolledtext.ScrolledText(
-            self.diff_tab,
-            font=('Consolas', 10),
-            bg=self.COLORS['secondary_bg'],
-            fg=self.COLORS['text_primary'],
-            wrap=tk.WORD,
-            state='disabled',
-            relief='flat',
-            padx=10,
-            pady=10
-        )
-        self.diff_text.pack(fill='both', expand=True, padx=5, pady=5)
-
         # Tab 4: Metrics
         self.metrics_tab = tk.Frame(
             self.notebook, bg=self.COLORS['secondary_bg'])
         self.notebook.add(self.metrics_tab, text="📈 Metrics")
 
         self.create_metrics_view()
+
+    def create_table_view(self):
+        """Create treeview table for side-by-side comparison"""
+        # Container frame
+        table_container = tk.Frame(
+            self.table_tab, bg=self.COLORS['secondary_bg'])
+        table_container.pack(fill='both', expand=True, padx=10, pady=10)
+
+        # Title label
+        table_title = tk.Label(
+            table_container,
+            text="All Field Differences: Side-by-Side Comparison",
+            font=('Helvetica', 14, 'bold'),
+            bg=self.COLORS['secondary_bg'],
+            fg=self.COLORS['text_primary']
+        )
+        table_title.pack(pady=(0, 10))
+
+        # Create frame for treeview and scrollbars
+        tree_frame = tk.Frame(table_container, bg=self.COLORS['secondary_bg'])
+        tree_frame.pack(fill='both', expand=True)
+
+        # Scrollbars
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical")
+        vsb.pack(side='right', fill='y')
+
+        hsb = ttk.Scrollbar(tree_frame, orient="horizontal")
+        hsb.pack(side='bottom', fill='x')
+
+        # Define columns
+        columns = (
+            'Status',
+            'Production Field',
+            'Production Value',
+            'Dev Field',
+            'Dev Value',
+            'Potential Rename',
+            'Confidence',
+            'Similarity'
+        )
+
+        # Create treeview
+        self.tree = ttk.Treeview(
+            tree_frame,
+            columns=columns,
+            show='headings',
+            height=20,
+            yscrollcommand=vsb.set,
+            xscrollcommand=hsb.set
+        )
+
+        vsb.config(command=self.tree.yview)
+        hsb.config(command=self.tree.xview)
+
+        # Configure column headings and widths
+        self.tree.heading('Status', text='Status')
+        self.tree.heading('Production Field', text='Production Field')
+        self.tree.heading('Production Value', text='Production Value')
+        self.tree.heading('Dev Field', text='Dev Field')
+        self.tree.heading('Dev Value', text='Dev Value')
+        self.tree.heading('Potential Rename', text='Potential Rename?')
+        self.tree.heading('Confidence', text='Confidence')
+        self.tree.heading('Similarity', text='Similarity %')
+
+        self.tree.column('Status', width=120, anchor='center')
+        self.tree.column('Production Field', width=200)
+        self.tree.column('Production Value', width=250)
+        self.tree.column('Dev Field', width=200)
+        self.tree.column('Dev Value', width=250)
+        self.tree.column('Potential Rename', width=120, anchor='center')
+        self.tree.column('Confidence', width=100, anchor='center')
+        self.tree.column('Similarity', width=100, anchor='center')
+
+        # Configure row colors
+        self.tree.tag_configure('rename', background='#E8F5E9')  # Light green
+        self.tree.tag_configure('missing', background='#FFEBEE')  # Light red
+        self.tree.tag_configure('new', background='#E3F2FD')  # Light blue
+        self.tree.tag_configure(
+            'different', background='#FFF3E0')  # Light orange
+        self.tree.tag_configure(
+            'exact', background='#F1F8E9')  # Very light green
+
+        self.tree.pack(fill='both', expand=True)
+
+        # Legend
+        legend_frame = tk.Frame(
+            table_container, bg=self.COLORS['secondary_bg'])
+        legend_frame.pack(fill='x', pady=(10, 0))
+
+        tk.Label(legend_frame, text="Legend:", font=('Helvetica', 10, 'bold'),
+                 bg=self.COLORS['secondary_bg']).pack(side='left', padx=(0, 10))
+
+        legends = [
+            ('🔄 Potential Rename', '#E8F5E9'),
+            ('❌ Missing', '#FFEBEE'),
+            ('➕ New Field', '#E3F2FD'),
+            ('⚠️ Value Diff', '#FFF3E0'),
+            ('✅ Exact Match', '#F1F8E9')
+        ]
+
+        for text, color in legends:
+            frame = tk.Frame(legend_frame, bg=color,
+                             relief='solid', borderwidth=1)
+            frame.pack(side='left', padx=5)
+            tk.Label(frame, text=text, bg=color, font=('Helvetica', 9),
+                     padx=8, pady=2).pack()
 
     def create_metrics_view(self):
         metrics_container = tk.Frame(
@@ -1004,7 +1041,7 @@ class SecureFieldComparisonGUI:
 
             self.update_status("🔬 Comparing values for common fields...")
 
-            # Compare values for COMMON fields only
+            # Compare values for COMMON fields
             value_comparisons = []
             exact_matches = 0
             similarity_scores = []
@@ -1026,11 +1063,11 @@ class SecureFieldComparisonGUI:
                     exact_matches += 1
                     status = "✅ EXACT MATCH"
                 elif similarity >= 0.9:
-                    status = "⚠️ MINOR DIFFERENCE"
+                    status = "⚠️ MINOR DIFF"
                 elif similarity >= 0.7:
-                    status = "⚠️ MODERATE DIFFERENCE"
+                    status = "⚠️ MODERATE DIFF"
                 else:
-                    status = "❌ MAJOR DIFFERENCE"
+                    status = "❌ MAJOR DIFF"
 
                 value_comparisons.append({
                     'field': field,
@@ -1042,13 +1079,6 @@ class SecureFieldComparisonGUI:
                 })
 
             total_compared = len(common_fields)
-            if total_compared == 0 and len(field_analysis['potential_renames']) == 0:
-                self.root.after(0, lambda: messagebox.showerror(
-                    "Error",
-                    "No common fields found to compare and no potential renames detected."
-                ))
-                self.root.after(0, self.comparison_complete)
-                return
 
             exact_match_rate = (
                 exact_matches / total_compared * 100) if total_compared > 0 else 0
@@ -1088,6 +1118,8 @@ class SecureFieldComparisonGUI:
                 'common_fields': sorted(common_fields),
                 'value_comparisons': value_comparisons,
                 'field_analysis': field_analysis,
+                'values_prod': values_prod,  # Added for table view
+                'values_dev': values_dev,    # Added for table view
                 'metrics': {
                     'exact_match_rate': exact_match_rate,
                     'avg_similarity': avg_similarity,
@@ -1154,18 +1186,124 @@ class SecureFieldComparisonGUI:
         self.prod_browse_btn.config(state='normal', bg=self.BTN_DEFAULT_BG)
         self.dev_browse_btn.config(state='normal', bg=self.BTN_DEFAULT_BG)
 
+    def populate_table_view(self):
+        """Populate the treeview table with all field differences"""
+        # Clear existing items
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        if not self.results:
+            return
+
+        field_analysis = self.results['field_analysis']
+        values_prod = self.results['values_prod']
+        values_dev = self.results['values_dev']
+        value_comparisons = self.results['value_comparisons']
+
+        row_number = 0
+
+        # 1. POTENTIAL RENAMES (with both fields and values)
+        for rename in field_analysis['potential_renames']:
+            row_number += 1
+            prod_field = self.sanitize_string(rename['prod_field'], 50)
+            dev_field = self.sanitize_string(rename['dev_field'], 50)
+            prod_value = self.sanitize_string(str(rename['prod_value'])[:100])
+            dev_value = self.sanitize_string(str(rename['dev_value'])[:100])
+
+            self.tree.insert('', 'end', values=(
+                '🔄 RENAME',
+                prod_field,
+                prod_value,
+                dev_field,
+                dev_value,
+                'YES',
+                rename['confidence'],
+                f"{rename['combined_score']*100:.1f}%"
+            ), tags=('rename',))
+
+        # 2. TRULY MISSING IN DEV (only in production)
+        for item in field_analysis['truly_missing_in_dev']:
+            row_number += 1
+            prod_field = self.sanitize_string(item['field'], 50)
+            prod_value = self.sanitize_string(str(item['value'])[:100])
+
+            self.tree.insert('', 'end', values=(
+                '❌ MISSING',
+                prod_field,
+                prod_value,
+                '(not in dev)',
+                '---',
+                'NO',
+                'N/A',
+                f"{item['best_match_score']*100:.1f}%"
+            ), tags=('missing',))
+
+        # 3. NEW FIELDS IN DEV (only in development)
+        for item in field_analysis['truly_missing_in_prod']:
+            row_number += 1
+            dev_field = self.sanitize_string(item['field'], 50)
+            dev_value = self.sanitize_string(str(item['value'])[:100])
+
+            self.tree.insert('', 'end', values=(
+                '➕ NEW',
+                '(not in prod)',
+                '---',
+                dev_field,
+                dev_value,
+                'NO',
+                'N/A',
+                '0.0%'
+            ), tags=('new',))
+
+        # 4. COMMON FIELDS WITH VALUE DIFFERENCES
+        mismatches = [vc for vc in value_comparisons if not vc['exact_match']]
+        for vc in mismatches:
+            row_number += 1
+            field = self.sanitize_string(vc['field'], 50)
+            prod_value = self.sanitize_string(str(vc['prod_value'])[:100])
+            dev_value = self.sanitize_string(str(vc['dev_value'])[:100])
+
+            self.tree.insert('', 'end', values=(
+                vc['status'],
+                field,
+                prod_value,
+                field,  # Same field name
+                dev_value,
+                'NO',
+                'Same Field',
+                f"{vc['similarity']*100:.1f}%"
+            ), tags=('different',))
+
+        # 5. EXACT MATCHES (optional - comment out if you only want differences)
+        exact_matches = [vc for vc in value_comparisons if vc['exact_match']]
+        for vc in exact_matches[:50]:  # Limit to first 50 to avoid clutter
+            row_number += 1
+            field = self.sanitize_string(vc['field'], 50)
+            value = self.sanitize_string(str(vc['prod_value'])[:100])
+
+            self.tree.insert('', 'end', values=(
+                '✅ EXACT',
+                field,
+                value,
+                field,
+                value,
+                'NO',
+                'Same Field',
+                '100.0%'
+            ), tags=('exact',))
+
+        self.update_status(f"✓ Table populated with {row_number} entries")
+
     def display_results_secure(self):
-        """Display results with COMBINED field analysis and value differences"""
+        """Display results with COMBINED field analysis and side-by-side table"""
         if not self.results:
             return
 
         self.summary_text.config(state='normal')
         self.field_analysis_text.config(state='normal')
-        self.diff_text.config(state='normal')
 
         self.summary_text.delete(1.0, tk.END)
         self.field_analysis_text.delete(1.0, tk.END)
-        self.diff_text.delete(1.0, tk.END)
 
         metrics = self.results['metrics']
         counts = self.results['counts']
@@ -1190,10 +1328,10 @@ COMPREHENSIVE FIELD AND VALUE COMPARISON SUMMARY
   • New Fields in Dev:     {counts['truly_missing_prod']} ➕
   • Suspicious Cases:      {counts['suspicious_fields']} ⚠️
 
-📈 VALUE COMPARISON (Common Fields Only):
+📈 VALUE COMPARISON (Common Fields):
   • Total Compared:        {counts['total_compared']}
   • Exact Matches:         {counts['exact_matches']} ({metrics['exact_match_rate']:.1f}%)
-  • Differences Found:     {counts['total_compared'] - counts['exact_matches']}
+  • Value Differences:     {counts['total_compared'] - counts['exact_matches']}
 
 🎯 ACCURACY METRICS:
   • Field Coverage:        {metrics['field_coverage']:.2f}%
@@ -1201,15 +1339,21 @@ COMPREHENSIVE FIELD AND VALUE COMPARISON SUMMARY
   • Average Similarity:    {metrics['avg_similarity']:.2f}%
   • Overall Accuracy:      {metrics['overall_accuracy']:.2f}%
 
+💡 TIP: Check the "Side-by-Side Field Comparison" tab for a complete table view
+        of all differences, including potential renames!
+
 ⏰ Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 {'='*80}
         """
         self.summary_text.insert(1.0, summary)
 
-        # COMBINED FIELD ANALYSIS TAB
+        # POPULATE SIDE-BY-SIDE TABLE (NEW!)
+        self.populate_table_view()
+
+        # DETAILED FIELD ANALYSIS TAB
         field_analysis_text = f"""
 {'='*80}
-COMPREHENSIVE FIELD ANALYSIS: MISSING FIELDS & RENAME DETECTION
+DETAILED FIELD ANALYSIS: MISSING FIELDS & RENAME DETECTION
 {'='*80}
 
 This analysis combines missing field detection with intelligent rename detection
@@ -1220,7 +1364,6 @@ based on both field name similarity and value similarity.
 {'='*80}
 
 Fields that appear to have been renamed based on value similarity analysis.
-These fields are missing in dev but have high-similarity matches.
 
 """
 
@@ -1261,7 +1404,6 @@ These fields are missing in dev but have high-similarity matches.
 {'='*80}
 
 Fields that exist in production but not in development, with no strong rename match.
-These fields appear to be genuinely missing.
 
 """
 
@@ -1273,7 +1415,7 @@ These fields appear to be genuinely missing.
                 field_analysis_text += f"       Value: {safe_value}\n"
                 field_analysis_text += f"       Best Match Score: {item['best_match_score']*100:.1f}%\n\n"
         else:
-            field_analysis_text += "  ✅ None - All production fields are either present or renamed!\n\n"
+            field_analysis_text += "  ✅ None!\n\n"
 
         field_analysis_text += f"""
 {'='*80}
@@ -1281,7 +1423,6 @@ These fields appear to be genuinely missing.
 {'='*80}
 
 Fields that exist in development but not in production.
-These are new additions to the development environment.
 
 """
 
@@ -1292,15 +1433,14 @@ These are new additions to the development environment.
                 field_analysis_text += f"  {i:3}. {safe_field}\n"
                 field_analysis_text += f"       Value: {safe_value}\n\n"
         else:
-            field_analysis_text += "  ✅ None - No new fields in dev!\n\n"
+            field_analysis_text += "  ✅ None!\n\n"
 
         field_analysis_text += f"""
 {'='*80}
 ⚠️  SUSPICIOUS CASES ({len(field_analysis['suspicious_fields'])})
 {'='*80}
 
-Fields with moderate similarity that are uncertain - could be renames or different fields.
-Manual review recommended.
+Fields with moderate similarity - manual review recommended.
 
 """
 
@@ -1314,54 +1454,13 @@ Manual review recommended.
                 field_analysis_text += f"Values {item['value_similarity']*100:.1f}%\n"
                 field_analysis_text += f"Combined Score: {item['combined_score']*100:.1f}%\n\n"
         else:
-            field_analysis_text += "  ✅ None - All field relationships are clear!\n\n"
+            field_analysis_text += "  ✅ None!\n\n"
 
         self.field_analysis_text.insert(1.0, field_analysis_text)
-
-        # VALUE DIFFERENCES TAB (For Common Fields Only)
-        mismatches = [
-            vc for vc in self.results['value_comparisons'] if not vc['exact_match']]
-
-        diff_text = f"""
-{'='*80}
-VALUE DIFFERENCES FOR COMMON FIELDS ({len(mismatches)} differences found)
-{'='*80}
-
-This section shows value differences for fields that exist in BOTH environments
-(i.e., fields with the same name but different values).
-
-Showing top 25 differences (sorted by severity):
-
-{'='*80}
-
-"""
-
-        if mismatches:
-            mismatches.sort(key=lambda x: x['similarity'])
-
-            for i, vc in enumerate(mismatches[:25], 1):
-                safe_field = self.sanitize_string(vc['field'], 100)
-                safe_prod = self.sanitize_string(str(vc['prod_value'])[:250])
-                safe_dev = self.sanitize_string(str(vc['dev_value'])[:250])
-
-                diff_text += f"#{i} - {safe_field}\n"
-                diff_text += f"{'─'*80}\n"
-                diff_text += f"Status: {vc['status']} (Similarity: {vc['similarity']*100:.1f}%)\n\n"
-                diff_text += f"Production Value:\n  {safe_prod}\n\n"
-                diff_text += f"Dev Value:\n  {safe_dev}\n"
-                diff_text += f"\n{'='*80}\n\n"
-
-            if len(mismatches) > 25:
-                diff_text += f"\n... and {len(mismatches) - 25} more differences (see CSV export)\n"
-        else:
-            diff_text += "✅ All common field values match exactly! Perfect sync for existing fields!"
-
-        self.diff_text.insert(1.0, diff_text)
 
         # Disable text widgets (read-only)
         self.summary_text.config(state='disabled')
         self.field_analysis_text.config(state='disabled')
-        self.diff_text.config(state='disabled')
 
         # Update grade display
         self.grade_label.config(
@@ -1397,7 +1496,7 @@ Showing top 25 differences (sorted by severity):
                 bar.config(bg=self.COLORS['error'])
 
     def export_reports_secure(self):
-        """Securely export reports with COMBINED analysis data"""
+        """Securely export reports including side-by-side comparison"""
         if not self.results:
             messagebox.showwarning(
                 "Warning",
@@ -1417,7 +1516,79 @@ Showing top 25 differences (sorted by severity):
 
             field_analysis = self.results['field_analysis']
 
-            # Export potential renames
+            # Export SIDE-BY-SIDE COMPARISON TABLE (NEW!)
+            side_by_side_data = []
+
+            # Add potential renames
+            for rename in field_analysis['potential_renames']:
+                side_by_side_data.append({
+                    'Status': 'POTENTIAL RENAME',
+                    'Production_Field': self.sanitize_csv_injection(rename['prod_field']),
+                    'Production_Value': self.sanitize_csv_injection(str(rename['prod_value'])[:500]),
+                    'Dev_Field': self.sanitize_csv_injection(rename['dev_field']),
+                    'Dev_Value': self.sanitize_csv_injection(str(rename['dev_value'])[:500]),
+                    'Potential_Rename': 'YES',
+                    'Confidence': rename['confidence'],
+                    'Field_Name_Similarity': f"{rename['field_name_similarity']*100:.2f}%",
+                    'Value_Similarity': f"{rename['value_similarity']*100:.2f}%",
+                    'Combined_Score': f"{rename['combined_score']*100:.2f}%"
+                })
+
+            # Add truly missing
+            for item in field_analysis['truly_missing_in_dev']:
+                side_by_side_data.append({
+                    'Status': 'MISSING IN DEV',
+                    'Production_Field': self.sanitize_csv_injection(item['field']),
+                    'Production_Value': self.sanitize_csv_injection(str(item['value'])[:500]),
+                    'Dev_Field': '(not in dev)',
+                    'Dev_Value': '---',
+                    'Potential_Rename': 'NO',
+                    'Confidence': 'N/A',
+                    'Field_Name_Similarity': '0%',
+                    'Value_Similarity': '0%',
+                    'Combined_Score': f"{item['best_match_score']*100:.2f}%"
+                })
+
+            # Add new fields
+            for item in field_analysis['truly_missing_in_prod']:
+                side_by_side_data.append({
+                    'Status': 'NEW IN DEV',
+                    'Production_Field': '(not in prod)',
+                    'Production_Value': '---',
+                    'Dev_Field': self.sanitize_csv_injection(item['field']),
+                    'Dev_Value': self.sanitize_csv_injection(str(item['value'])[:500]),
+                    'Potential_Rename': 'NO',
+                    'Confidence': 'N/A',
+                    'Field_Name_Similarity': '0%',
+                    'Value_Similarity': '0%',
+                    'Combined_Score': '0%'
+                })
+
+            # Add value differences for common fields
+            for vc in self.results['value_comparisons']:
+                if not vc['exact_match']:
+                    side_by_side_data.append({
+                        'Status': vc['status'],
+                        'Production_Field': self.sanitize_csv_injection(vc['field']),
+                        'Production_Value': self.sanitize_csv_injection(str(vc['prod_value'])[:500]),
+                        'Dev_Field': self.sanitize_csv_injection(vc['field']),
+                        'Dev_Value': self.sanitize_csv_injection(str(vc['dev_value'])[:500]),
+                        'Potential_Rename': 'NO',
+                        'Confidence': 'Same Field',
+                        'Field_Name_Similarity': '100%',
+                        'Value_Similarity': f"{vc['similarity']*100:.2f}%",
+                        'Combined_Score': f"{vc['similarity']*100:.2f}%"
+                    })
+
+            # Create DataFrame and export
+            if side_by_side_data:
+                side_by_side_df = pd.DataFrame(side_by_side_data)
+                side_by_side_file = self.generate_safe_filename(
+                    'side_by_side_comparison', 'csv')
+                side_by_side_df.to_csv(
+                    str(dir_path / side_by_side_file), index=False, encoding='utf-8')
+
+            # Export individual category files
             if field_analysis['potential_renames']:
                 renames_data = []
                 for rename in field_analysis['potential_renames']:
@@ -1428,97 +1599,17 @@ Showing top 25 differences (sorted by severity):
                         'value_similarity': rename['value_similarity'] * 100,
                         'combined_score': rename['combined_score'] * 100,
                         'confidence': rename['confidence'],
-                        'prod_value_preview': self.sanitize_csv_injection(str(rename['prod_value'])[:200]),
-                        'dev_value_preview': self.sanitize_csv_injection(str(rename['dev_value'])[:200])
+                        'prod_value': self.sanitize_csv_injection(str(rename['prod_value'])[:500]),
+                        'dev_value': self.sanitize_csv_injection(str(rename['dev_value'])[:500])
                     })
 
                 renames_df = pd.DataFrame(renames_data)
                 renames_df = renames_df.sort_values(
                     'combined_score', ascending=False)
                 renames_file = self.generate_safe_filename(
-                    'potential_renames', 'csv')
+                    'potential_renames_detailed', 'csv')
                 renames_df.to_csv(str(dir_path / renames_file),
                                   index=False, encoding='utf-8')
-
-            # Export truly missing fields
-            if field_analysis['truly_missing_in_dev']:
-                missing_data = []
-                for item in field_analysis['truly_missing_in_dev']:
-                    missing_data.append({
-                        'field': self.sanitize_csv_injection(item['field']),
-                        'value': self.sanitize_csv_injection(str(item['value'])[:500]),
-                        'best_match_score': item['best_match_score'] * 100
-                    })
-
-                missing_df = pd.DataFrame(missing_data)
-                missing_file = self.generate_safe_filename(
-                    'truly_missing_in_dev', 'csv')
-                missing_df.to_csv(str(dir_path / missing_file),
-                                  index=False, encoding='utf-8')
-
-            # Export new fields
-            if field_analysis['truly_missing_in_prod']:
-                new_fields_data = []
-                for item in field_analysis['truly_missing_in_prod']:
-                    new_fields_data.append({
-                        'field': self.sanitize_csv_injection(item['field']),
-                        'value': self.sanitize_csv_injection(str(item['value'])[:500])
-                    })
-
-                new_df = pd.DataFrame(new_fields_data)
-                new_file = self.generate_safe_filename(
-                    'new_fields_in_dev', 'csv')
-                new_df.to_csv(str(dir_path / new_file),
-                              index=False, encoding='utf-8')
-
-            # Export suspicious fields
-            if field_analysis['suspicious_fields']:
-                suspicious_data = []
-                for item in field_analysis['suspicious_fields']:
-                    suspicious_data.append({
-                        'prod_field': self.sanitize_csv_injection(item['prod_field']),
-                        'dev_field': self.sanitize_csv_injection(item['dev_field']),
-                        'field_name_similarity': item['field_name_similarity'] * 100,
-                        'value_similarity': item['value_similarity'] * 100,
-                        'combined_score': item['combined_score'] * 100,
-                        'confidence': item['confidence']
-                    })
-
-                suspicious_df = pd.DataFrame(suspicious_data)
-                suspicious_file = self.generate_safe_filename(
-                    'suspicious_cases', 'csv')
-                suspicious_df.to_csv(
-                    str(dir_path / suspicious_file), index=False, encoding='utf-8')
-
-            # Export value comparisons for common fields
-            if self.results['value_comparisons']:
-                comparison_data = []
-                for vc in self.results['value_comparisons']:
-                    comparison_data.append({
-                        'field': self.sanitize_csv_injection(vc['field']),
-                        'prod_value': self.sanitize_csv_injection(vc['prod_value']),
-                        'dev_value': self.sanitize_csv_injection(vc['dev_value']),
-                        'similarity': vc['similarity'],
-                        'similarity_percent': vc['similarity'] * 100,
-                        'status': self.sanitize_string(vc['status']),
-                        'exact_match': vc['exact_match']
-                    })
-
-                comparison_df = pd.DataFrame(comparison_data)
-                comparison_df = comparison_df.sort_values('similarity')
-
-                detailed_file = self.generate_safe_filename(
-                    'value_comparison_common_fields', 'csv')
-                comparison_df.to_csv(
-                    str(dir_path / detailed_file), index=False, encoding='utf-8')
-
-                # Mismatches only
-                mismatches_df = comparison_df[~comparison_df['exact_match']]
-                if len(mismatches_df) > 0:
-                    mismatches_file = self.generate_safe_filename(
-                        'value_mismatches_only', 'csv')
-                    mismatches_df.to_csv(
-                        str(dir_path / mismatches_file), index=False, encoding='utf-8')
 
             # Export summary
             summary_file = self.generate_safe_filename('summary', 'txt')
@@ -1526,7 +1617,7 @@ Showing top 25 differences (sorted by severity):
                 summary_content = self.summary_text.get(1.0, tk.END)
                 f.write(self.sanitize_string(summary_content))
 
-            # Export full field analysis
+            # Export field analysis
             field_analysis_file = self.generate_safe_filename(
                 'field_analysis', 'txt')
             with open(dir_path / field_analysis_file, 'w', encoding='utf-8') as f:
@@ -1537,22 +1628,11 @@ Showing top 25 differences (sorted by severity):
 
             files_msg = f"Reports exported to:\n{dir_path}\n\n"
             files_msg += "Files created:\n"
+            files_msg += f"• {side_by_side_file} (⭐ MAIN COMPARISON TABLE)\n"
             files_msg += f"• {summary_file}\n"
             files_msg += f"• {field_analysis_file}\n"
             if field_analysis['potential_renames']:
-                files_msg += f"• potential_renames_*.csv ({len(field_analysis['potential_renames'])} renames)\n"
-            if field_analysis['truly_missing_in_dev']:
-                files_msg += f"• truly_missing_in_dev_*.csv ({len(field_analysis['truly_missing_in_dev'])} missing)\n"
-            if field_analysis['truly_missing_in_prod']:
-                files_msg += f"• new_fields_in_dev_*.csv ({len(field_analysis['truly_missing_in_prod'])} new)\n"
-            if field_analysis['suspicious_fields']:
-                files_msg += f"• suspicious_cases_*.csv ({len(field_analysis['suspicious_fields'])} suspicious)\n"
-            if self.results['value_comparisons']:
-                files_msg += f"• value_comparison_common_fields_*.csv\n"
-                mismatches = [
-                    vc for vc in self.results['value_comparisons'] if not vc['exact_match']]
-                if mismatches:
-                    files_msg += f"• value_mismatches_only_*.csv ({len(mismatches)} mismatches)\n"
+                files_msg += f"• potential_renames_detailed_*.csv ({len(field_analysis['potential_renames'])} renames)\n"
 
             messagebox.showinfo("Export Successful", files_msg)
 
@@ -1568,15 +1648,16 @@ Showing top 25 differences (sorted by severity):
         """Clear results safely"""
         self.summary_text.config(state='normal')
         self.field_analysis_text.config(state='normal')
-        self.diff_text.config(state='normal')
 
         self.summary_text.delete(1.0, tk.END)
         self.field_analysis_text.delete(1.0, tk.END)
-        self.diff_text.delete(1.0, tk.END)
+
+        # Clear table
+        for item in self.tree.get_children():
+            self.tree.delete(item)
 
         self.summary_text.config(state='disabled')
         self.field_analysis_text.config(state='disabled')
-        self.diff_text.config(state='disabled')
 
         self.grade_label.config(
             text="No comparison yet - Select files to begin",
