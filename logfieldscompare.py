@@ -429,7 +429,7 @@ class SecureFieldComparisonGUI:
             self.root, bg=self.COLORS['header_bg'], height=100)
         title_frame.pack(fill='x', pady=(0, 15))
         title_frame.pack_propagate(False)
-s
+
         title_label = tk.Label(
             title_frame,
             text="🔍 Log Fields Comparative Analysis Tool",
