@@ -1,0 +1,1779 @@
+# ctf suricata rules
+
+
+# ============================================
+# CREDENTIAL ATTACKS - IMMEDIATE BLOCK
+# ============================================
+
+# SMB Brute Force - DROP
+drop tcp any any -> any 445 (msg:"[ALERT] SMB Brute Force Attack"; flow:to_server,established; content:"|ff|SMB"; depth:5; threshold:type threshold, track by_src, count 5, seconds 60; sid:2000001; rev:1; priority:1;)
+
+# RDP Brute Force - DROP
+drop tcp any any -> any 3389 (msg:"[ALERT] RDP Brute Force Attack"; flow:to_server; threshold:type threshold, track by_src, count 5, seconds 60; sid:2000002; rev:1; priority:1;)
+
+# LDAP Authentication Brute Force - DROP
+drop tcp any any -> any 389 (msg:"[ALERT] LDAP Brute Force Attack"; flow:to_server,established; threshold:type threshold, track by_src, count 10, seconds 60; sid:2000003; rev:1; priority:1;)
+
+# Kerberos Brute Force - DROP
+drop tcp any any -> any 88 (msg:"[ALERT] Kerberos Brute Force"; flow:to_server; threshold:type threshold, track by_src, count 10, seconds 60; sid:2000004; rev:1; priority:1;)
+
+# ============================================
+# LATERAL MOVEMENT - BLOCK
+# ============================================
+
+# PsExec Service Installation - DROP
+drop tcp any any -> any 445 (msg:"[ALERT] PsExec Lateral Movement"; flow:to_server,established; content:"|ff|SMB|72|"; content:"PSEXESVC"; nocase; distance:0; sid:2000010; rev:1; priority:1;)
+
+# WinRM/PowerShell Remoting from non-admin hosts - DROP
+drop tcp ![172.16.201.104,172.16.201.156] any -> any 5985 (msg:"[ALERT] Unauthorized WinRM Access"; flow:to_server; sid:2000011; rev:1; priority:1;)
+
+drop tcp ![172.16.201.104,172.16.201.156] any -> any 5986 (msg:"[ALERT] Unauthorized WinRM SSL Access"; flow:to_server; sid:2000012; rev:1; priority:1;)
+
+# WMI Remote Execution - DROP
+drop tcp any any -> any 135 (msg:"[ALERT] WMI Remote Execution Attempt"; flow:to_server,established; content:"|05|"; content:"|0b|"; distance:0; within:2; sid:2000013; rev:1; priority:1;)
+
+# RDP from Workstation to Workstation - DROP
+drop tcp [172.16.201.165,172.16.201.166,172.16.201.167,172.16.201.168,172.16.201.169,172.16.201.171,172.16.201.172,172.16.201.173,172.16.201.174,172.16.201.175,172.16.201.177] any -> [172.16.201.165,172.16.201.166,172.16.201.167,172.16.201.168,172.16.201.169,172.16.201.171,172.16.201.172,172.16.201.173,172.16.201.174,172.16.201.175,172.16.201.177] 3389 (msg:"[ALERT] Workstation-to-Workstation RDP"; flow:to_server; sid:2000014; rev:1; priority:1;)
+
+# ============================================
+# CREDENTIAL DUMPING - IMMEDIATE DROP
+# ============================================
+
+# Mimikatz Activity - DROP
+drop tcp any any -> any any (msg:"[ALERT] Mimikatz Credential Dumping"; flow:established; content:"sekurlsa"; nocase; sid:2000020; rev:1; priority:1;)
+
+drop tcp any any -> any any (msg:"[ALERT] Mimikatz Token Manipulation"; flow:established; content:"token::"; nocase; sid:2000021; rev:1; priority:1;)
+
+# DCSync Attack - DROP
+drop tcp any any -> any 389 (msg:"[ALERT] DCSync Attack Detected"; flow:to_server,established; content:"|30|"; content:"1.2.840.113556.1.4.801"; distance:0; sid:2000022; rev:1; priority:1;)
+
+# LSASS Memory Dump - DROP
+drop tcp any any -> any 445 (msg:"[ALERT] LSASS Memory Dump via SMB"; flow:established; content:"lsass"; nocase; content:".dmp"; nocase; distance:0; sid:2000023; rev:1; priority:1;)
+
+# ============================================
+# DATA EXFILTRATION - BLOCK
+# ============================================
+
+# Large Data Exfiltration - DROP
+drop tcp $HOME_NET any -> !$HOME_NET any (msg:"[ALERT] Large Data Exfiltration Attempt"; dsize:>5000000; flow:to_server; threshold:type threshold, track by_src, count 3, seconds 60; sid:2000030; rev:1; priority:1;)
+
+# DNS Tunneling - DROP
+drop dns any any -> any 53 (msg:"[ALERT] DNS Tunneling Detected"; dns_query; content:"."; pcre:"/[a-zA-Z0-9]{60,}/"; sid:2000031; rev:1; priority:1;)
+
+# Suspicious FTP Upload - DROP
+drop tcp $HOME_NET any -> !$HOME_NET 21 (msg:"[ALERT] FTP Data Exfiltration"; flow:to_server,established; content:"STOR"; http_method; sid:2000032; rev:1; priority:1;)
+
+# Base64 Encoded Data Exfil - DROP
+drop tcp any any -> !$HOME_NET any (msg:"[ALERT] Base64 Encoded Exfiltration"; flow:to_server; content:"base64"; nocase; dsize:>10000; sid:2000033; rev:1; priority:1;)
+
+# ============================================
+# EXPLOIT ATTEMPTS - DROP
+# ============================================
+
+# EternalBlue/MS17-010 - REJECT
+reject tcp any any -> any 445 (msg:"[ALERT] EternalBlue Exploit Attempt"; flow:to_server; content:"|00 00 00 31 00|"; content:"|00 00 00 00 00|"; distance:0; within:5; sid:2000040; rev:1; priority:1;)
+
+# Metasploit Payloads - DROP
+drop tcp any any -> any any (msg:"[ALERT] Metasploit Payload Detected"; flow:established; content:"meterpreter"; nocase; sid:2000041; rev:1; priority:1;)
+
+drop tcp any any -> any any (msg:"[ALERT] Metasploit Reverse Shell"; flow:established; content:"msf"; nocase; content:"payload"; nocase; distance:0; sid:2000042; rev:1; priority:1;)
+
+# Web Shell Upload Attempts - DROP
+drop http any any -> any any (msg:"[ALERT] Web Shell Upload Attempt"; flow:established,to_server; content:"POST"; http_method; content:".php"; http_uri; content:"eval"; nocase; sid:2000043; rev:1; priority:1;)
+
+# PrintNightmare - REJECT
+reject tcp any any -> any 445 (msg:"[ALERT] PrintNightmare Exploit"; flow:to_server,established; content:"MS-RPRN"; nocase; sid:2000044; rev:1; priority:1;)
+
+# ============================================
+# SUSPICIOUS TOOLS - DROP
+# ============================================
+
+# Cobalt Strike Beacon - DROP
+drop tcp any any -> any any (msg:"[ALERT] Cobalt Strike Beacon"; flow:established; content:"|00 00 00|"; depth:3; content:"|00 00 bf be|"; distance:0; sid:2000050; rev:1; priority:1;)
+
+# Bloodhound/SharpHound - DROP
+drop tcp any any -> any 389 (msg:"[ALERT] BloodHound LDAP Query"; flow:to_server,established; content:"objectClass=*"; nocase; sid:2000051; rev:1; priority:1;)
+
+# Empire Framework - DROP
+drop tcp any any -> any any (msg:"[ALERT] PowerShell Empire Activity"; flow:established; content:"invoke-empire"; nocase; sid:2000052; rev:1; priority:1;)
+
+# ============================================
+# NETWORK RECONNAISSANCE - ALERT ONLY
+# ============================================
+
+# Port Scanning Detection - ALERT (too aggressive to drop)
+alert tcp any any -> $HOME_NET any (msg:"[RECON] Port Scan Detected"; flags:S; threshold:type threshold, track by_src, count 20, seconds 10; sid:3000001; rev:1; priority:2;)
+
+# ICMP Sweep - ALERT
+alert icmp any any -> $HOME_NET any (msg:"[RECON] ICMP Sweep Detected"; itype:8; threshold:type threshold, track by_src, count 10, seconds 5; sid:3000002; rev:1; priority:2;)
+
+# ============================================
+# SUSPICIOUS PROTOCOLS - DROP
+# ============================================
+
+# Tor Traffic - DROP
+drop tcp any any -> any any (msg:"[ALERT] Tor Traffic Detected"; flow:to_server; content:"|16 03|"; depth:2; content:"www.torproject.org"; nocase; sid:2000060; rev:1; priority:1;)
+
+# Common Port Abuse - DROP
+drop tcp any any -> any [3333,4444,5555,9999,14433] (msg:"[ALERT] Common Ports Abuse - Formally known as Crypto Mining"; flow:to_server; sid:2000061; rev:1; priority:1;)
+
+# ============================================
+# PHISHING & MALWARE - DROP
+# ============================================
+
+# Suspicious Email Attachments - DROP
+drop smtp any any -> any any (msg:"[ALERT] Executable Email Attachment"; flow:established; content:".exe"; nocase; content:"Content-Disposition|3a| attachment"; nocase; distance:0; sid:2000070; rev:1; priority:1;)
+
+drop smtp any any -> any any (msg:"[ALERT] Suspicious Macro Document"; flow:established; content:".doc"; nocase; content:"Content-Disposition|3a| attachment"; nocase; pcre:"/macroEnabled/i"; sid:2000071; rev:1; priority:1;)
+
+# Known Malicious User Agents - DROP
+drop http any any -> any any (msg:"[ALERT] Malicious User Agent"; flow:to_server,established; content:"User-Agent|3a|"; nocase; content:"CobaltStrike"; nocase; distance:0; sid:2000072; rev:1; priority:1;)
+
+# SQLMap default User-Agent
+drop http any any -> any any (msg:"[ALERT] SQLMap User-Agent Detected"; flow:established,to_server; content:"User-Agent|3a|"; nocase; content:"sqlmap"; nocase; distance:0; sid:2001001; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQLMap alternative User-Agents
+drop http any any -> any any (msg:"[ALERT] SQLMap User-Agent Variant"; flow:established,to_server; content:"User-Agent|3a|"; nocase; pcre:"/User-Agent\x3a\s*sqlmap/i"; sid:2001002; rev:1; classtype:web-application-attack; priority:1;)
+
+
+# Classic SQL Injection - UNION SELECT
+drop http any any -> any any (msg:"[ALERT] SQL Injection - UNION SELECT"; flow:established,to_server; content:"union"; nocase; content:"select"; nocase; distance:0; sid:2001010; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQL Injection - OR 1=1
+drop http any any -> any any (msg:"[ALERT] SQL Injection - OR 1=1"; flow:established,to_server; content:"or"; nocase; pcre:"/or\s+[\'\"]?\d+[\'\"]?\s*=\s*[\'\"]?\d+/i"; sid:2001011; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQL Injection - Comment Injection
+drop http any any -> any any (msg:"[ALERT] SQL Injection - Comment"; flow:established,to_server; content:"--"; http_uri; sid:2001012; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] SQL Injection - Multi-line Comment"; flow:established,to_server; content:"/*"; http_uri; content:"*/"; http_uri; distance:0; sid:2001013; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQL Injection - Information Schema
+drop http any any -> any any (msg:"[ALERT] SQL Injection - Information Schema"; flow:established,to_server; content:"information_schema"; nocase; sid:2001014; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQL Injection - Database Functions
+drop http any any -> any any (msg:"[ALERT] SQL Injection - database()"; flow:established,to_server; content:"database("; nocase; http_uri; sid:2001015; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] SQL Injection - version()"; flow:established,to_server; content:"version("; nocase; http_uri; sid:2001016; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] SQL Injection - user()"; flow:established,to_server; content:"user("; nocase; http_uri; sid:2001017; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQL Injection - Time-based Blind
+drop http any any -> any any (msg:"[ALERT] SQL Injection - Time-based (SLEEP)"; flow:established,to_server; content:"sleep("; nocase; http_uri; sid:2001018; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] SQL Injection - Time-based (WAITFOR)"; flow:established,to_server; content:"waitfor"; nocase; content:"delay"; nocase; distance:0; sid:2001019; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] SQL Injection - Time-based (BENCHMARK)"; flow:established,to_server; content:"benchmark("; nocase; http_uri; sid:2001020; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQL Injection - Hex Encoding
+drop http any any -> any any (msg:"[ALERT] SQL Injection - Hex Encoded"; flow:established,to_server; content:"0x"; http_uri; pcre:"/0x[0-9a-fA-F]{10,}/"; sid:2001021; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQL Injection - Stacked Queries
+drop http any any -> any any (msg:"[ALERT] SQL Injection - Stacked Query"; flow:established,to_server; content:";"; http_uri; pcre:"/;\s*(select|insert|update|delete|drop|create|alter)/i"; sid:2001022; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQLMap Fingerprinting
+drop http any any -> any any (msg:"[ALERT] SQLMap Fingerprinting"; flow:established,to_server; content:"AND"; nocase; content:"SLEEP"; nocase; distance:0; sid:2001030; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQLMap Boolean-based Blind
+drop http any any -> any any (msg:"[ALERT] SQLMap Boolean-based Blind"; flow:established,to_server; pcre:"/AND\s+\d+\s*=\s*\d+/i"; sid:2001031; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQLMap Error-based
+drop http any any -> any any (msg:"[ALERT] SQLMap Error-based Injection"; flow:established,to_server; content:"extractvalue"; nocase; http_uri; sid:2001032; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] SQLMap Error-based (updatexml)"; flow:established,to_server; content:"updatexml"; nocase; http_uri; sid:2001033; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQLMap UNION-based
+drop http any any -> any any (msg:"[ALERT] SQLMap UNION-based Injection"; flow:established,to_server; content:"UNION"; nocase; pcre:"/UNION.{0,100}SELECT.{0,100}NULL/i"; sid:2001034; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQLMap Out-of-band
+drop http any any -> any any (msg:"[ALERT] SQLMap Out-of-band (load_file)"; flow:established,to_server; content:"load_file"; nocase; http_uri; sid:2001035; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQL Injection in POST body
+drop http any any -> any any (msg:"[ALERT] SQL Injection in POST - UNION"; flow:established,to_server; content:"POST"; http_method; content:"union"; nocase; http_client_body; content:"select"; nocase; http_client_body; distance:0; sid:2001040; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] SQL Injection in POST - OR 1=1"; flow:established,to_server; content:"POST"; http_method; pcre:"/or\s+[\'\"]?\d+[\'\"]?\s*=\s*[\'\"]?\d+/i"; sid:2001041; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQL Injection in Cookie
+drop http any any -> any any (msg:"[ALERT] SQL Injection in Cookie"; flow:established,to_server; content:"Cookie|3a|"; nocase; content:"union"; nocase; distance:0; content:"select"; nocase; distance:0; sid:2001042; rev:1; classtype:web-application-attack; priority:1;)
+
+# Bash/Shell Command Execution
+drop http any any -> any any (msg:"[ALERT] RCE - Shell Command (bash)"; flow:established,to_server; content:"bash"; nocase; http_uri; sid:2002001; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - Shell Command (sh)"; flow:established,to_server; content:"/bin/sh"; nocase; sid:2002002; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - Shell Command (cmd)"; flow:established,to_server; content:"cmd.exe"; nocase; sid:2002003; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - PowerShell Execution"; flow:established,to_server; content:"powershell"; nocase; http_uri; sid:2002004; rev:1; classtype:web-application-attack; priority:1;)
+
+# Command Chaining
+drop http any any -> any any (msg:"[ALERT] RCE - Command Chaining (pipe)"; flow:established,to_server; content:"|7c|"; http_uri; pcre:"/\|.*(ls|cat|wget|curl|nc|bash)/i"; sid:2002005; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - Command Chaining (semicolon)"; flow:established,to_server; pcre:"/;.*(ls|cat|wget|curl|nc|bash|whoami)/i"; sid:2002006; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - Command Chaining (AND)"; flow:established,to_server; content:"&&"; http_uri; sid:2002007; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - Command Substitution"; flow:established,to_server; content:"$("; http_uri; sid:2002008; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - Command Substitution (backtick)"; flow:established,to_server; content:"|60|"; http_uri; pcre:"/\`.+\`/"; sid:2002009; rev:1; classtype:web-application-attack; priority:1;)
+
+# Information Gathering
+drop http any any -> any any (msg:"[ALERT] RCE - whoami Command"; flow:established,to_server; content:"whoami"; nocase; http_uri; sid:2002010; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - id Command"; flow:established,to_server; content:"id"; http_uri; pcre:"/\bid\b/i"; sid:2002011; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - uname Command"; flow:established,to_server; content:"uname"; nocase; http_uri; sid:2002012; rev:1; classtype:web-application-attack; priority:1;)
+
+# File Operations
+drop http any any -> any any (msg:"[ALERT] RCE - cat Command"; flow:established,to_server; content:"cat"; http_uri; pcre:"/\bcat\s+/i"; sid:2002013; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - ls Command"; flow:established,to_server; content:"ls"; http_uri; pcre:"/\bls\s+/i"; sid:2002014; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - dir Command"; flow:established,to_server; content:"dir"; http_uri; pcre:"/\bdir\s+/i"; sid:2002015; rev:1; classtype:web-application-attack; priority:1;)
+
+# Network Commands
+drop http any any -> any any (msg:"[ALERT] RCE - wget Command"; flow:established,to_server; content:"wget"; nocase; http_uri; sid:2002016; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - curl Command"; flow:established,to_server; content:"curl"; nocase; http_uri; sid:2002017; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - nc/netcat Command"; flow:established,to_server; content:"nc"; http_uri; pcre:"/\bnc\s+-/i"; sid:2002018; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - netcat Command"; flow:established,to_server; content:"netcat"; nocase; http_uri; sid:2002019; rev:1; classtype:web-application-attack; priority:1;)
+
+# Privilege Escalation
+drop http any any -> any any (msg:"[ALERT] RCE - sudo Command"; flow:established,to_server; content:"sudo"; nocase; http_uri; sid:2002020; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - su Command"; flow:established,to_server; content:"su"; http_uri; pcre:"/\bsu\s+-/i"; sid:2002021; rev:1; classtype:web-application-attack; priority:1;)
+
+# PHP eval()
+drop http any any -> any any (msg:"[ALERT] RCE - PHP eval()"; flow:established,to_server; content:"eval("; nocase; http_uri; sid:2002030; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - PHP eval() in POST"; flow:established,to_server; content:"POST"; http_method; content:"eval("; nocase; http_client_body; sid:2002031; rev:1; classtype:web-application-attack; priority:1;)
+
+# PHP system()
+drop http any any -> any any (msg:"[ALERT] RCE - PHP system()"; flow:established,to_server; content:"system("; nocase; http_uri; sid:2002032; rev:1; classtype:web-application-attack; priority:1;)
+
+# PHP exec()
+drop http any any -> any any (msg:"[ALERT] RCE - PHP exec()"; flow:established,to_server; content:"exec("; nocase; http_uri; sid:2002033; rev:1; classtype:web-application-attack; priority:1;)
+
+# PHP shell_exec()
+drop http any any -> any any (msg:"[ALERT] RCE - PHP shell_exec()"; flow:established,to_server; content:"shell_exec("; nocase; http_uri; sid:2002034; rev:1; classtype:web-application-attack; priority:1;)
+
+# PHP passthru()
+drop http any any -> any any (msg:"[ALERT] RCE - PHP passthru()"; flow:established,to_server; content:"passthru("; nocase; http_uri; sid:2002035; rev:1; classtype:web-application-attack; priority:1;)
+
+# PHP backtick execution
+drop http any any -> any any (msg:"[ALERT] RCE - PHP Backtick Execution"; flow:established,to_server; content:"=|60|"; http_uri; sid:2002036; rev:1; classtype:web-application-attack; priority:1;)
+
+# PHP assert()
+drop http any any -> any any (msg:"[ALERT] RCE - PHP assert()"; flow:established,to_server; content:"assert("; nocase; http_uri; sid:2002037; rev:1; classtype:web-application-attack; priority:1;)
+
+# PHP preg_replace with /e modifier
+drop http any any -> any any (msg:"[ALERT] RCE - PHP preg_replace /e"; flow:established,to_server; content:"preg_replace"; nocase; content:"/e"; nocase; distance:0; sid:2002038; rev:1; classtype:web-application-attack; priority:1;)
+
+# PHP create_function()
+drop http any any -> any any (msg:"[ALERT] RCE - PHP create_function()"; flow:established,to_server; content:"create_function("; nocase; http_uri; sid:2002039; rev:1; classtype:web-application-attack; priority:1;)
+
+# Python eval()
+drop http any any -> any any (msg:"[ALERT] RCE - Python eval()"; flow:established,to_server; content:"eval("; http_uri; content:"__import__"; nocase; distance:0; sid:2002040; rev:1; classtype:web-application-attack; priority:1;)
+
+# Python exec()
+drop http any any -> any any (msg:"[ALERT] RCE - Python exec()"; flow:established,to_server; content:"exec("; http_uri; pcre:"/exec\(.*(os|subprocess|commands)/i"; sid:2002041; rev:1; classtype:web-application-attack; priority:1;)
+
+# Python os.system()
+drop http any any -> any any (msg:"[ALERT] RCE - Python os.system()"; flow:established,to_server; content:"os.system("; nocase; http_uri; sid:2002042; rev:1; classtype:web-application-attack; priority:1;)
+
+# Python subprocess
+drop http any any -> any any (msg:"[ALERT] RCE - Python subprocess"; flow:established,to_server; content:"subprocess"; nocase; http_uri; sid:2002043; rev:1; classtype:web-application-attack; priority:1;)
+
+# Python pickle deserialization
+drop http any any -> any any (msg:"[ALERT] RCE - Python Pickle Deserialization"; flow:established,to_server; content:"pickle"; nocase; content:"loads("; nocase; distance:0; sid:2002044; rev:1; classtype:web-application-attack; priority:1;)
+
+
+# Java Runtime.exec()
+drop http any any -> any any (msg:"[ALERT] RCE - Java Runtime.exec()"; flow:established,to_server; content:"Runtime"; content:"exec("; distance:0; sid:2002050; rev:1; classtype:web-application-attack; priority:1;)
+
+# Java ProcessBuilder
+drop http any any -> any any (msg:"[ALERT] RCE - Java ProcessBuilder"; flow:established,to_server; content:"ProcessBuilder"; nocase; http_uri; sid:2002051; rev:1; classtype:web-application-attack; priority:1;)
+
+# Java Deserialization
+drop http any any -> any any (msg:"[ALERT] RCE - Java Deserialization"; flow:established,to_server; content:"rO0"; http_client_body; sid:2002052; rev:1; classtype:web-application-attack; priority:1;)
+
+# Common Web Shell Patterns
+drop http any any -> any any (msg:"[ALERT] RCE - Web Shell (c99)"; flow:established,to_server; content:"c99"; nocase; http_uri; content:".php"; nocase; distance:0; sid:2002060; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - Web Shell (r57)"; flow:established,to_server; content:"r57"; nocase; http_uri; content:".php"; nocase; distance:0; sid:2002061; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - Web Shell (b374k)"; flow:established,to_server; content:"b374k"; nocase; http_uri; sid:2002062; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - Web Shell (WSO)"; flow:established,to_server; content:"wso"; nocase; http_uri; content:".php"; nocase; distance:0; sid:2002063; rev:1; classtype:web-application-attack; priority:1;)
+
+# Generic Web Shell Detection
+drop http any any -> any any (msg:"[ALERT] RCE - Generic Web Shell Pattern"; flow:established,to_server; content:"POST"; http_method; content:".php"; http_uri; content:"cmd"; nocase; http_client_body; sid:2002064; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - Web Shell Upload"; flow:established,to_server; content:"POST"; http_method; content:"multipart/form-data"; http_header; content:".php"; http_client_body; sid:2002065; rev:1; classtype:web-application-attack; priority:1;)
+
+# Bash Reverse Shell
+drop tcp any any -> any any (msg:"[ALERT] RCE - Bash Reverse Shell"; flow:established; content:"/bin/bash"; content:"-i"; distance:0; sid:2002070; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any any (msg:"[ALERT] RCE - Bash Reverse Shell (dev/tcp)"; flow:established; content:"/dev/tcp/"; sid:2002071; rev:1; classtype:trojan-activity; priority:1;)
+
+# Netcat Reverse Shell
+drop tcp any any -> any any (msg:"[ALERT] RCE - Netcat Reverse Shell"; flow:established; content:"nc"; pcre:"/nc\s+-[a-z]*e\s+.*\/bin\/(ba)?sh/i"; sid:2002072; rev:1; classtype:trojan-activity; priority:1;)
+
+# Python Reverse Shell
+drop tcp any any -> any any (msg:"[ALERT] RCE - Python Reverse Shell"; flow:established; content:"python"; content:"socket"; distance:0; content:"connect"; distance:0; sid:2002073; rev:1; classtype:trojan-activity; priority:1;)
+
+# PHP Reverse Shell
+drop tcp any any -> any any (msg:"[ALERT] RCE - PHP Reverse Shell"; flow:established; content:"fsockopen("; content:"/bin/sh"; distance:0; sid:2002074; rev:1; classtype:trojan-activity; priority:1;)
+
+# Perl Reverse Shell
+drop tcp any any -> any any (msg:"[ALERT] RCE - Perl Reverse Shell"; flow:established; content:"perl"; content:"socket"; distance:0; content:"exec"; distance:0; sid:2002075; rev:1; classtype:trojan-activity; priority:1;)
+
+# URL Encoded RCE Commands
+drop http any any -> any any (msg:"[ALERT] RCE - URL Encoded Command (bash)"; flow:established,to_server; content:"%62%61%73%68"; http_uri; sid:2002080; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - URL Encoded Command (wget)"; flow:established,to_server; content:"%77%67%65%74"; http_uri; sid:2002081; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - URL Encoded Command (curl)"; flow:established,to_server; content:"%63%75%72%6c"; http_uri; sid:2002082; rev:1; classtype:web-application-attack; priority:1;)
+
+# Double URL Encoding
+drop http any any -> any any (msg:"[ALERT] RCE - Double URL Encoded"; flow:established,to_server; content:"%25"; http_uri; threshold:type threshold, track by_src, count 5, seconds 10; sid:2002083; rev:1; classtype:web-application-attack; priority:1;)
+
+
+# Server-Side Template Injection
+drop http any any -> any any (msg:"[ALERT] RCE - SSTI (Jinja2)"; flow:established,to_server; content:"{{"; http_uri; content:"}}"; distance:0; sid:2002090; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - SSTI (Twig)"; flow:established,to_server; content:"{{"; http_uri; content:"_self"; distance:0; sid:2002091; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] RCE - SSTI (Freemarker)"; flow:established,to_server; content:"<#"; http_uri; content:"execute"; distance:0; sid:2002092; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# SQLMap & RCE Detection Rules
+# Blue Team CTF - Created: 2024-12-16
+# ============================================
+
+# SQLMAP USER-AGENT DETECTION
+drop http any any -> any any (msg:"[ALERT] SQLMap User-Agent Detected"; flow:established,to_server; content:"User-Agent|3a|"; nocase; content:"sqlmap"; nocase; distance:0; sid:2001001; rev:1; classtype:web-application-attack; priority:1;)
+
+# SQL INJECTION PATTERNS
+drop http any any -> any any (msg:"[ALERT] SQL Injection - UNION SELECT"; flow:established,to_server; content:"union"; nocase; content:"select"; nocase; distance:0; sid:2001010; rev:1; classtype:web-application-attack; priority:1;)
+drop http any any -> any any (msg:"[ALERT] SQL Injection - OR 1=1"; flow:established,to_server; pcre:"/or\s+[\'\"]?\d+[\'\"]?\s*=\s*[\'\"]?\d+/i"; sid:2001011; rev:1; classtype:web-application-attack; priority:1;)
+drop http any any -> any any (msg:"[ALERT] SQL Injection - Comment"; flow:established,to_server; content:"--"; http_uri; sid:2001012; rev:1; classtype:web-application-attack; priority:1;)
+drop http any any -> any any (msg:"[ALERT] SQL Injection - Information Schema"; flow:established,to_server; content:"information_schema"; nocase; sid:2001014; rev:1; classtype:web-application-attack; priority:1;)
+drop http any any -> any any (msg:"[ALERT] SQL Injection - SLEEP()"; flow:established,to_server; content:"sleep("; nocase; http_uri; sid:2001018; rev:1; classtype:web-application-attack; priority:1;)
+
+# RCE - SHELL COMMANDS
+drop http any any -> any any (msg:"[ALERT] RCE - Shell Command (bash)"; flow:established,to_server; content:"bash"; nocase; http_uri; sid:2002001; rev:1; classtype:web-application-attack; priority:1;)
+drop http any any -> any any (msg:"[ALERT] RCE - Shell Command (sh)"; flow:established,to_server; content:"/bin/sh"; nocase; sid:2002002; rev:1; classtype:web-application-attack; priority:1;)
+drop http any any -> any any (msg:"[ALERT] RCE - PowerShell"; flow:established,to_server; content:"powershell"; nocase; http_uri; sid:2002004; rev:1; classtype:web-application-attack; priority:1;)
+drop http any any -> any any (msg:"[ALERT] RCE - Command Chaining"; flow:established,to_server; content:"&&"; http_uri; sid:2002007; rev:1; classtype:web-application-attack; priority:1;)
+drop http any any -> any any (msg:"[ALERT] RCE - Command Substitution"; flow:established,to_server; content:"$("; http_uri; sid:2002008; rev:1; classtype:web-application-attack; priority:1;)
+
+# RCE - COMMON COMMANDS
+drop http any any -> any any (msg:"[ALERT] RCE - whoami"; flow:established,to_server; content:"whoami"; nocase; http_uri; sid:2002010; rev:1; classtype:web-application-attack; priority:1;)
+drop http any any -> any any (msg:"[ALERT] RCE - wget"; flow:established,to_server; content:"wget"; nocase; http_uri; sid:2002016; rev:1; classtype:web-application-attack; priority:1;)
+drop http any any -> any any (msg:"[ALERT] RCE - curl"; flow:established,to_server; content:"curl"; nocase; http_uri; sid:2002017; rev:1; classtype:web-application-attack; priority:1;)
+drop http any any -> any any (msg:"[ALERT] RCE - netcat"; flow:established,to_server; content:"nc"; http_uri; pcre:"/\bnc\s+-/i"; sid:2002018; rev:1; classtype:web-application-attack; priority:1;)
+
+pass http any any -> any 80 (msg:"[ALLOWLIST] Ubuntu Archive"; content:"Host|3a|"; nocase; pcre:"/archive\.ubuntu\.com|security\.ubuntu\.com|ports\.ubuntu\.com/i"; sid:1000020; rev:1; priority:1;)
+
+pass http any any -> any 443 (msg:"[ALLOWLIST] Ubuntu Archive HTTPS"; content:"Host|3a|"; nocase; pcre:"/archive\.ubuntu\.com|security\.ubuntu\.com/i"; sid:1000021; rev:1; priority:1;)
+
+pass http any any -> any 80 (msg:"[ALLOWLIST] Debian Archive"; content:"Host|3a|"; nocase; pcre:"/deb\.debian\.org|security\.debian\.org/i"; sid:1000022; rev:1; priority:1;)
+
+# RCE - PHP FUNCTIONS
+drop http any any -> any any (msg:"[ALERT] RCE - PHP eval()"; flow:established,to_server; content:"eval("; nocase; http_uri; sid:2002030; rev:1; classtype:web-application-attack; priority:1;)
+drop http any any -> any any (msg:"[ALERT] RCE - PHP system()"; flow:established,to_server; content:"system("; nocase; http_uri; sid:2002032; rev:1; classtype:web-application-attack; priority:1;)
+drop http any any -> any any (msg:"[ALERT] RCE - PHP exec()"; flow:established,to_server; content:"exec("; nocase; http_uri; sid:2002033; rev:1; classtype:web-application-attack; priority:1;)
+drop http any any -> any any (msg:"[ALERT] RCE - PHP shell_exec()"; flow:established,to_server; content:"shell_exec("; nocase; http_uri; sid:2002034; rev:1; classtype:web-application-attack; priority:1;)
+
+# RCE - WEB SHELLS
+drop http any any -> any any (msg:"[ALERT] RCE - Web Shell (c99)"; flow:established,to_server; content:"c99"; nocase; http_uri; content:".php"; nocase; distance:0; sid:2002060; rev:1; classtype:web-application-attack; priority:1;)
+drop http any any -> any any (msg:"[ALERT] RCE - Web Shell Upload"; flow:established,to_server; content:"POST"; http_method; content:"multipart/form-data"; http_header; content:".php"; http_client_body; sid:2002065; rev:1; classtype:web-application-attack; priority:1;)
+
+# RCE - REVERSE SHELLS
+drop tcp any any -> any any (msg:"[ALERT] RCE - Bash Reverse Shell"; flow:established; content:"/bin/bash"; content:"-i"; distance:0; sid:2002070; rev:1; classtype:trojan-activity; priority:1;)
+drop tcp any any -> any any (msg:"[ALERT] RCE - /dev/tcp Shell"; flow:established; content:"/dev/tcp/"; sid:2002071; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# XSS (Cross-Site Scripting) Detection Rules
+# Blue Team CTF - Created: 2024-12-16
+# ============================================
+
+# ============================================
+# BASIC XSS PATTERNS
+# ============================================
+
+# Script Tag Injection
+drop http any any -> any any (msg:"[ALERT] XSS - Script Tag in URI"; flow:established,to_server; content:"<script"; nocase; http_uri; sid:2003001; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - Script Tag in POST Data"; flow:established,to_server; content:"POST"; http_method; content:"<script"; nocase; http_client_body; sid:2003002; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - Script Tag in Cookie"; flow:established,to_server; content:"Cookie|3a|"; nocase; content:"<script"; nocase; distance:0; sid:2003003; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - Closing Script Tag"; flow:established,to_server; content:"</script"; nocase; http_uri; sid:2003004; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# JAVASCRIPT EVENT HANDLERS
+# ============================================
+
+# Inline Event Handlers
+drop http any any -> any any (msg:"[ALERT] XSS - onerror Event Handler"; flow:established,to_server; content:"onerror"; nocase; http_uri; sid:2003010; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - onload Event Handler"; flow:established,to_server; content:"onload"; nocase; http_uri; pcre:"/onload\s*=\s*[\"\']/i"; sid:2003011; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - onclick Event Handler"; flow:established,to_server; content:"onclick"; nocase; http_uri; pcre:"/onclick\s*=\s*[\"\']/i"; sid:2003012; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - onmouseover Event Handler"; flow:established,to_server; content:"onmouseover"; nocase; http_uri; sid:2003013; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - onfocus Event Handler"; flow:established,to_server; content:"onfocus"; nocase; http_uri; sid:2003014; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - onblur Event Handler"; flow:established,to_server; content:"onblur"; nocase; http_uri; sid:2003015; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - onchange Event Handler"; flow:established,to_server; content:"onchange"; nocase; http_uri; sid:2003016; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - onsubmit Event Handler"; flow:established,to_server; content:"onsubmit"; nocase; http_uri; sid:2003017; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - oninput Event Handler"; flow:established,to_server; content:"oninput"; nocase; http_uri; sid:2003018; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - onkeydown Event Handler"; flow:established,to_server; content:"onkeydown"; nocase; http_uri; sid:2003019; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - onkeyup Event Handler"; flow:established,to_server; content:"onkeyup"; nocase; http_uri; sid:2003020; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# IMG TAG XSS
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - IMG with JavaScript"; flow:established,to_server; content:"<img"; nocase; http_uri; content:"javascript|3a|"; nocase; distance:0; sid:2003030; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - IMG with onerror"; flow:established,to_server; content:"<img"; nocase; content:"onerror"; nocase; distance:0; sid:2003031; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - IMG with onload"; flow:established,to_server; content:"<img"; nocase; content:"onload"; nocase; distance:0; sid:2003032; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - IMG src=x onerror"; flow:established,to_server; pcre:"/<img\s+src\s*=\s*[\"']?x[\"']?\s+onerror/i"; sid:2003033; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# IFRAME INJECTION
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - IFRAME Tag in URI"; flow:established,to_server; content:"<iframe"; nocase; http_uri; sid:2003040; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - IFRAME with JavaScript"; flow:established,to_server; content:"<iframe"; nocase; content:"javascript|3a|"; nocase; distance:0; sid:2003041; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - IFRAME in POST"; flow:established,to_server; content:"POST"; http_method; content:"<iframe"; nocase; http_client_body; sid:2003042; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# JAVASCRIPT PROTOCOL
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - javascript: Protocol in URI"; flow:established,to_server; content:"javascript|3a|"; nocase; http_uri; sid:2003050; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - javascript: in href"; flow:established,to_server; content:"href"; nocase; content:"javascript|3a|"; nocase; distance:0; sid:2003051; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - javascript: in src"; flow:established,to_server; content:"src"; nocase; content:"javascript|3a|"; nocase; distance:0; sid:2003052; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - vbscript: Protocol"; flow:established,to_server; content:"vbscript|3a|"; nocase; http_uri; sid:2003053; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - data: Protocol with base64"; flow:established,to_server; content:"data|3a|"; nocase; http_uri; content:"base64"; nocase; distance:0; sid:2003054; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# SVG XSS
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - SVG Tag with onload"; flow:established,to_server; content:"<svg"; nocase; content:"onload"; nocase; distance:0; sid:2003060; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - SVG with JavaScript"; flow:established,to_server; content:"<svg"; nocase; content:"javascript|3a|"; nocase; distance:0; sid:2003061; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - SVG animateTransform"; flow:established,to_server; content:"<animateTransform"; nocase; content:"onbegin"; nocase; distance:0; sid:2003062; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# OBJECT/EMBED XSS
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - OBJECT Tag"; flow:established,to_server; content:"<object"; nocase; http_uri; sid:2003070; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - EMBED Tag"; flow:established,to_server; content:"<embed"; nocase; http_uri; sid:2003071; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - APPLET Tag"; flow:established,to_server; content:"<applet"; nocase; http_uri; sid:2003072; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# STYLE ATTRIBUTE XSS
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - Style with expression"; flow:established,to_server; content:"style"; nocase; content:"expression"; nocase; distance:0; sid:2003080; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - Style with @import"; flow:established,to_server; content:"style"; nocase; content:"@import"; nocase; distance:0; sid:2003081; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - Style with behavior"; flow:established,to_server; content:"style"; nocase; content:"behavior"; nocase; distance:0; sid:2003082; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - Style with -moz-binding"; flow:established,to_server; content:"style"; nocase; content:"-moz-binding"; nocase; distance:0; sid:2003083; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# META TAG XSS
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - META refresh with URL"; flow:established,to_server; content:"<meta"; nocase; content:"http-equiv"; nocase; distance:0; content:"refresh"; nocase; distance:0; sid:2003090; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - META with JavaScript"; flow:established,to_server; content:"<meta"; nocase; content:"javascript|3a|"; nocase; distance:0; sid:2003091; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# FORM XSS
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - FORM with JavaScript action"; flow:established,to_server; content:"<form"; nocase; content:"action"; nocase; distance:0; content:"javascript|3a|"; nocase; distance:0; sid:2003100; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - INPUT with autofocus"; flow:established,to_server; content:"<input"; nocase; content:"autofocus"; nocase; distance:0; content:"onfocus"; nocase; distance:0; sid:2003101; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# LINK TAG XSS
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - LINK with import"; flow:established,to_server; content:"<link"; nocase; content:"import"; nocase; distance:0; sid:2003110; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - LINK with JavaScript"; flow:established,to_server; content:"<link"; nocase; content:"javascript|3a|"; nocase; distance:0; sid:2003111; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# BODY TAG XSS
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - BODY with onload"; flow:established,to_server; content:"<body"; nocase; content:"onload"; nocase; distance:0; sid:2003120; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - BODY with background JavaScript"; flow:established,to_server; content:"<body"; nocase; content:"background"; nocase; distance:0; content:"javascript|3a|"; nocase; distance:0; sid:2003121; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# JAVASCRIPT FUNCTIONS
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - alert() Function"; flow:established,to_server; content:"alert("; nocase; http_uri; sid:2003130; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - prompt() Function"; flow:established,to_server; content:"prompt("; nocase; http_uri; sid:2003131; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - confirm() Function"; flow:established,to_server; content:"confirm("; nocase; http_uri; sid:2003132; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - eval() Function"; flow:established,to_server; content:"eval("; nocase; http_uri; sid:2003133; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - document.write"; flow:established,to_server; content:"document.write"; nocase; http_uri; sid:2003134; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - document.cookie"; flow:established,to_server; content:"document.cookie"; nocase; http_uri; sid:2003135; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - window.location"; flow:established,to_server; content:"window.location"; nocase; http_uri; sid:2003136; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - document.location"; flow:established,to_server; content:"document.location"; nocase; http_uri; sid:2003137; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# ENCODED XSS PATTERNS
+# ============================================
+
+# URL Encoded
+drop http any any -> any any (msg:"[ALERT] XSS - URL Encoded <script>"; flow:established,to_server; content:"%3Cscript"; nocase; http_uri; sid:2003140; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - URL Encoded alert"; flow:established,to_server; content:"%61%6C%65%72%74"; http_uri; sid:2003141; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - URL Encoded javascript:"; flow:established,to_server; content:"%6A%61%76%61%73%63%72%69%70%74%3A"; http_uri; sid:2003142; rev:1; classtype:web-application-attack; priority:1;)
+
+# Double URL Encoding
+drop http any any -> any any (msg:"[ALERT] XSS - Double URL Encoded <script>"; flow:established,to_server; content:"%253Cscript"; nocase; http_uri; sid:2003143; rev:1; classtype:web-application-attack; priority:1;)
+
+# HTML Entity Encoding
+drop http any any -> any any (msg:"[ALERT] XSS - HTML Entity Encoded <script>"; flow:established,to_server; pcre:"/&#(0*)60;script/i"; sid:2003144; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - HTML Entity alert"; flow:established,to_server; content:"&#97;&#108;&#101;&#114;&#116;"; http_uri; sid:2003145; rev:1; classtype:web-application-attack; priority:1;)
+
+# Hex Encoding
+drop http any any -> any any (msg:"[ALERT] XSS - Hex Encoded <script>"; flow:established,to_server; content:"\x3cscript"; nocase; http_uri; sid:2003146; rev:1; classtype:web-application-attack; priority:1;)
+
+# Unicode Encoding
+drop http any any -> any any (msg:"[ALERT] XSS - Unicode Encoded <script>"; flow:established,to_server; pcre:"/\\u003cscript/i"; sid:2003147; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# ATTRIBUTE BREAKING
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - Attribute Breaking with Quote"; flow:established,to_server; pcre:"/[\"']\s*>\s*<script/i"; sid:2003150; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - Attribute Breaking with onload"; flow:established,to_server; pcre:"/[\"']\s+onload\s*=/i"; sid:2003151; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - Closing Tag Break"; flow:established,to_server; content:"></"; http_uri; content:"<script"; nocase; distance:0; sid:2003152; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# DOM-BASED XSS PATTERNS
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - location.hash Access"; flow:established,to_server; content:"location.hash"; nocase; http_uri; sid:2003160; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - innerHTML Manipulation"; flow:established,to_server; content:"innerHTML"; nocase; http_uri; content:"="; distance:0; sid:2003161; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - outerHTML Manipulation"; flow:established,to_server; content:"outerHTML"; nocase; http_uri; sid:2003162; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# TEMPLATE INJECTION XSS
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - AngularJS Template Injection"; flow:established,to_server; content:"{{"; http_uri; content:"constructor"; nocase; distance:0; sid:2003170; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - Vue.js Template Injection"; flow:established,to_server; content:"{{"; http_uri; pcre:"/\{\{.*?constructor.*?\}\}/i"; sid:2003171; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# POLYGLOT XSS
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - Polyglot XSS Pattern"; flow:established,to_server; pcre:"/javascript:.*?alert.*?<\/script>/i"; sid:2003180; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - Multi-Context Payload"; flow:established,to_server; content:"'\""; http_uri; content:"><script>"; nocase; distance:0; sid:2003181; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# MUTATION XSS (mXSS)
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - Mutation XSS with Backticks"; flow:established,to_server; content:"<noscript>"; nocase; content:"<style>"; nocase; distance:0; sid:2003190; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - mXSS with noembed"; flow:established,to_server; content:"<noembed>"; nocase; content:"<script"; nocase; distance:0; sid:2003191; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# FILTER BYPASS TECHNIQUES
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - Script Tag with Whitespace"; flow:established,to_server; pcre:"/<\s*script/i"; sid:2003200; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - Script Tag with Line Break"; flow:established,to_server; pcre:"/<script[\r\n]/i"; sid:2003201; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - Null Byte Injection"; flow:established,to_server; content:"|00|"; http_uri; content:"<script"; nocase; distance:0; sid:2003202; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - Case Variation Obfuscation"; flow:established,to_server; pcre:"/<ScRiPt/i"; sid:2003203; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# XSS IN REFERER HEADER
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - Script in Referer Header"; flow:established,to_server; content:"Referer|3a|"; nocase; content:"<script"; nocase; distance:0; sid:2003210; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - JavaScript in Referer"; flow:established,to_server; content:"Referer|3a|"; nocase; content:"javascript|3a|"; nocase; distance:0; sid:2003211; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# XSS IN USER-AGENT
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] XSS - Script in User-Agent"; flow:established,to_server; content:"User-Agent|3a|"; nocase; content:"<script"; nocase; distance:0; sid:2003220; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] XSS - alert() in User-Agent"; flow:established,to_server; content:"User-Agent|3a|"; nocase; content:"alert("; nocase; distance:0; sid:2003221; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# DIRECTORY TRAVERSAL / PATH TRAVERSAL RULES
+# Blue Team CTF - Created: 2024-12-16
+# ============================================
+
+# ============================================
+# BASIC DIRECTORY TRAVERSAL PATTERNS
+# ============================================
+
+# Dot Dot Slash (../)
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Dot Dot Slash"; flow:established,to_server; content:"../"; http_uri; sid:2014001; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Multiple Dot Dot Slash"; flow:established,to_server; content:"../"; http_uri; content:"../"; http_uri; distance:0; sid:2014002; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - In POST Body"; flow:established,to_server; content:"POST"; http_method; content:"../"; http_client_body; sid:2014003; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - In Cookie"; flow:established,to_server; content:"Cookie|3a|"; nocase; content:"../"; distance:0; sid:2014004; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - In Referer"; flow:established,to_server; content:"Referer|3a|"; nocase; content:"../"; distance:0; sid:2014005; rev:1; classtype:web-application-attack; priority:1;)
+
+# Windows Backslash Traversal (..\\)
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Windows Backslash"; flow:established,to_server; content:"..\\"; http_uri; sid:2014010; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Windows Multiple"; flow:established,to_server; content:"..\\"; http_uri; content:"..\\"; http_uri; distance:0; sid:2014011; rev:1; classtype:web-application-attack; priority:1;)
+
+# Mixed Slash Types
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Mixed Slashes"; flow:established,to_server; pcre:"/\.\.[\/\\]/i"; sid:2014012; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# URL ENCODED TRAVERSAL
+# ============================================
+
+# Single URL Encoding
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - URL Encoded Dot"; flow:established,to_server; content:"%2e%2e%2f"; nocase; http_uri; sid:2014020; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - URL Encoded Backslash"; flow:established,to_server; content:"%2e%2e%5c"; nocase; http_uri; sid:2014021; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - URL Encoded Slash"; flow:established,to_server; content:"%2e%2e/"; nocase; http_uri; sid:2014022; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Partial URL Encoded"; flow:established,to_server; content:"..%2f"; nocase; http_uri; sid:2014023; rev:1; classtype:web-application-attack; priority:1;)
+
+# Double URL Encoding
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Double URL Encoded"; flow:established,to_server; content:"%252e%252e%252f"; nocase; http_uri; sid:2014030; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Double Encoded Backslash"; flow:established,to_server; content:"%252e%252e%255c"; nocase; http_uri; sid:2014031; rev:1; classtype:web-application-attack; priority:1;)
+
+# Unicode Encoding
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Unicode Encoded"; flow:established,to_server; content:"%c0%ae%c0%ae%c0%af"; nocase; http_uri; sid:2014040; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Unicode Backslash"; flow:established,to_server; content:"%c0%ae%c0%ae%c1%9c"; nocase; http_uri; sid:2014041; rev:1; classtype:web-application-attack; priority:1;)
+
+# UTF-8 Overlong Encoding
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - UTF-8 Overlong"; flow:established,to_server; pcre:"/%c0%af|%e0%80%af|%c1%9c/i"; sid:2014042; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# ABSOLUTE PATH TRAVERSAL
+# ============================================
+
+# Unix/Linux Absolute Paths
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - /etc/passwd"; flow:established,to_server; content:"/etc/passwd"; nocase; http_uri; sid:2014050; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - /etc/shadow"; flow:established,to_server; content:"/etc/shadow"; nocase; http_uri; sid:2014051; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - /etc/hosts"; flow:established,to_server; content:"/etc/hosts"; nocase; http_uri; sid:2014052; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - /etc/group"; flow:established,to_server; content:"/etc/group"; nocase; http_uri; sid:2014053; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - /root/"; flow:established,to_server; content:"/root/"; nocase; http_uri; sid:2014054; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - /var/www/"; flow:established,to_server; content:"/var/www/"; http_uri; pcre:"/\/var\/www\/.{0,50}\.\./i"; sid:2014055; rev:1; classtype:web-application-attack; priority:1;)
+
+# Windows Absolute Paths
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - C:\\ Drive"; flow:established,to_server; content:"c|3a|\\"; nocase; http_uri; sid:2014060; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Windows System32"; flow:established,to_server; content:"windows\\system32"; nocase; http_uri; sid:2014061; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Windows SAM File"; flow:established,to_server; content:"windows\\system32\\config\\sam"; nocase; http_uri; sid:2014062; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - boot.ini"; flow:established,to_server; content:"boot.ini"; nocase; http_uri; sid:2014063; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - win.ini"; flow:established,to_server; content:"win.ini"; nocase; http_uri; sid:2014064; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# PARAMETER-BASED TRAVERSAL
+# ============================================
+
+# Common vulnerable parameters
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - file Parameter"; flow:established,to_server; content:"file="; http_uri; content:"../"; http_uri; distance:0; sid:2014070; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - path Parameter"; flow:established,to_server; content:"path="; http_uri; content:"../"; http_uri; distance:0; sid:2014071; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - page Parameter"; flow:established,to_server; content:"page="; http_uri; content:"../"; http_uri; distance:0; sid:2014072; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - include Parameter"; flow:established,to_server; content:"include="; http_uri; content:"../"; http_uri; distance:0; sid:2014073; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - template Parameter"; flow:established,to_server; content:"template="; http_uri; content:"../"; http_uri; distance:0; sid:2014074; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - doc Parameter"; flow:established,to_server; content:"doc="; http_uri; content:"../"; http_uri; distance:0; sid:2014075; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - document Parameter"; flow:established,to_server; content:"document="; http_uri; content:"../"; http_uri; distance:0; sid:2014076; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - folder Parameter"; flow:established,to_server; content:"folder="; http_uri; content:"../"; http_uri; distance:0; sid:2014077; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - root Parameter"; flow:established,to_server; content:"root="; http_uri; content:"../"; http_uri; distance:0; sid:2014078; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - load Parameter"; flow:established,to_server; content:"load="; http_uri; content:"../"; http_uri; distance:0; sid:2014079; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# ADVANCED EVASION TECHNIQUES
+# ============================================
+
+# Null Byte Injection
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Null Byte"; flow:established,to_server; content:"../"; http_uri; content:"|00|"; http_uri; distance:0; sid:2014080; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - URL Encoded Null Byte"; flow:established,to_server; content:"../"; http_uri; content:"%00"; nocase; http_uri; distance:0; sid:2014081; rev:1; classtype:web-application-attack; priority:1;)
+
+# Dot Encoding Variations
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Dot Dot Encoded"; flow:established,to_server; pcre:"/\.\.%2f|%2e%2e\/|%2e\.\//i"; sid:2014090; rev:1; classtype:web-application-attack; priority:1;)
+
+# Backslash Variations
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Alternate Backslash"; flow:established,to_server; content:"..\\/"; http_uri; sid:2014091; rev:1; classtype:web-application-attack; priority:1;)
+
+# Deep Traversal (Multiple Levels)
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Deep Traversal (5+ levels)"; flow:established,to_server; pcre:"/(?:\.\.[\/\\]){5,}/i"; sid:2014100; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Extreme Deep Traversal"; flow:established,to_server; pcre:"/(?:\.\.[\/\\]){10,}/i"; sid:2014101; rev:1; classtype:web-application-attack; priority:1;)
+
+# Mixed Case Evasion
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Mixed Case"; flow:established,to_server; pcre:"/\.\.[\/\\].*[A-Z].*\.\./i"; sid:2014110; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# SPECIFIC FILE ACCESS ATTEMPTS
+# ============================================
+
+# Configuration Files (Unix/Linux)
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Apache Config"; flow:established,to_server; content:"httpd.conf"; nocase; http_uri; sid:2014120; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Nginx Config"; flow:established,to_server; content:"nginx.conf"; nocase; http_uri; sid:2014121; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - SSH Config"; flow:established,to_server; content:"ssh_config"; nocase; http_uri; sid:2014122; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - PHP Config"; flow:established,to_server; content:"php.ini"; nocase; http_uri; sid:2014123; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - MySQL Config"; flow:established,to_server; content:"my.cnf"; nocase; http_uri; sid:2014124; rev:1; classtype:web-application-attack; priority:1;)
+
+# Application Config Files
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - .env File"; flow:established,to_server; content:".env"; http_uri; sid:2014130; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - config.php"; flow:established,to_server; content:"config.php"; nocase; http_uri; content:"../"; http_uri; distance:0; sid:2014131; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - database.yml"; flow:established,to_server; content:"database.yml"; nocase; http_uri; sid:2014132; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - wp-config.php"; flow:established,to_server; content:"wp-config.php"; nocase; http_uri; content:"../"; http_uri; distance:0; sid:2014133; rev:1; classtype:web-application-attack; priority:1;)
+
+# Log Files
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Access Log"; flow:established,to_server; content:"access.log"; nocase; http_uri; sid:2014140; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Error Log"; flow:established,to_server; content:"error.log"; nocase; http_uri; sid:2014141; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Auth Log"; flow:established,to_server; content:"auth.log"; nocase; http_uri; sid:2014142; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# APACHE/NGINX SPECIFIC
+# ============================================
+
+# .htaccess Access
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - .htaccess"; flow:established,to_server; content:".htaccess"; nocase; http_uri; sid:2014150; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - .htpasswd"; flow:established,to_server; content:".htpasswd"; nocase; http_uri; sid:2014151; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# SOURCE CODE ACCESS
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Git Repository"; flow:established,to_server; content:".git"; http_uri; sid:2014160; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - SVN Repository"; flow:established,to_server; content:".svn"; http_uri; sid:2014161; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Backup Files"; flow:established,to_server; pcre:"/\.(bak|backup|old|orig|save)$/i"; sid:2014162; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# TRAVERSAL IN DIFFERENT CONTEXTS
+# ============================================
+
+# In User-Agent Header
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - In User-Agent"; flow:established,to_server; content:"User-Agent|3a|"; nocase; content:"../"; distance:0; sid:2014170; rev:1; classtype:web-application-attack; priority:1;)
+
+# In Accept-Language Header
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - In Accept-Language"; flow:established,to_server; content:"Accept-Language|3a|"; nocase; content:"../"; distance:0; sid:2014171; rev:1; classtype:web-application-attack; priority:1;)
+
+# In Host Header
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - In Host Header"; flow:established,to_server; content:"Host|3a|"; nocase; content:"../"; distance:0; sid:2014172; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# ZIP/ARCHIVE TRAVERSAL
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Zip Slip Attack"; flow:established,to_server; content:"multipart/form-data"; http_header; content:"../"; http_client_body; sid:2014180; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# REGEX-BASED COMPREHENSIVE DETECTION
+# ============================================
+
+# Comprehensive dot-dot pattern
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Comprehensive Pattern"; flow:established,to_server; pcre:"/(?:\.\.\/|\.\.\\|%2e%2e%2f|%252e%252e%252f|%c0%ae%c0%ae)/i"; sid:2014200; rev:1; classtype:web-application-attack; priority:1;)
+
+# Detect multiple encoding techniques combined
+drop http any any -> any any (msg:"[ALERT] Directory Traversal - Mixed Encoding"; flow:established,to_server; pcre:"/(?:%2e|%252e|%c0%ae)(?:%2e|%252e|%c0%ae)(?:%2f|%5c|%252f|%255c)/i"; sid:2014201; rev:1; classtype:web-application-attack; priority:1;)
+
+
+# ============================================
+# COMMAND INJECTION - COMPREHENSIVE COVERAGE
+# Blue Team CTF - Created: 2024-12-16
+# SID Range: 2015xxx (New dedicated range)
+# ============================================
+
+# ============================================
+# PARAMETER-BASED COMMAND INJECTION
+# ============================================
+
+# Common vulnerable parameters
+drop http any any -> any any (msg:"[ALERT] Command Injection - cmd Parameter"; flow:established,to_server; content:"cmd="; http_uri; pcre:"/cmd=.*[\|\&\;]/"; sid:2015001; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - exec Parameter"; flow:established,to_server; content:"exec="; http_uri; pcre:"/exec=.*[\|\&\;]/"; sid:2015002; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - command Parameter"; flow:established,to_server; content:"command="; http_uri; pcre:"/command=.*[\|\&\;]/"; sid:2015003; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - execute Parameter"; flow:established,to_server; content:"execute="; http_uri; pcre:"/execute=.*[\|\&\;]/"; sid:2015004; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - ping Parameter"; flow:established,to_server; content:"ping="; http_uri; pcre:"/ping=.*[\|\&\;]/"; sid:2015005; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - ip Parameter"; flow:established,to_server; content:"ip="; http_uri; pcre:"/ip=.*[\|\&\;]/"; sid:2015006; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - host Parameter"; flow:established,to_server; content:"host="; http_uri; pcre:"/host=.*[\|\&\;]/"; sid:2015007; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - target Parameter"; flow:established,to_server; content:"target="; http_uri; pcre:"/target=.*[\|\&\;]/"; sid:2015008; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - query Parameter"; flow:established,to_server; content:"query="; http_uri; pcre:"/query=.*[\|\&\;]/"; sid:2015009; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - address Parameter"; flow:established,to_server; content:"address="; http_uri; pcre:"/address=.*[\|\&\;]/"; sid:2015010; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# UNIX/LINUX COMMAND INJECTION OPERATORS
+# ============================================
+
+# Command separators in URI
+drop http any any -> any any (msg:"[ALERT] Command Injection - Semicolon Separator in URI"; flow:established,to_server; pcre:"/;.*(?:ls|cat|echo|whoami|id|pwd|uname)/i"; sid:2015020; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Pipe Operator"; flow:established,to_server; content:"|7c|"; http_uri; pcre:"/\|.*(?:ls|cat|bash|sh)/i"; sid:2015021; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - AND Operator"; flow:established,to_server; content:"&&"; http_uri; sid:2015022; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - OR Operator"; flow:established,to_server; content:"||"; http_uri; sid:2015023; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Newline Injection"; flow:established,to_server; content:"%0a"; nocase; http_uri; pcre:"/%0a.*(?:ls|cat|bash)/i"; sid:2015024; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Carriage Return"; flow:established,to_server; content:"%0d"; nocase; http_uri; content:"%0a"; nocase; distance:0; sid:2015025; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# COMMAND SUBSTITUTION
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Dollar Parenthesis"; flow:established,to_server; content:"$("; http_uri; sid:2015030; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Backticks"; flow:established,to_server; content:"|60|"; http_uri; pcre:"/\`.*(?:ls|cat|whoami|id)\`/i"; sid:2015031; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - URL Encoded Backticks"; flow:established,to_server; content:"%60"; nocase; http_uri; sid:2015032; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Dollar Brace"; flow:established,to_server; content:"${"; http_uri; sid:2015033; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# ENCODED COMMAND INJECTION
+# ============================================
+
+# URL encoded operators
+drop http any any -> any any (msg:"[ALERT] Command Injection - URL Encoded Semicolon"; flow:established,to_server; content:"%3b"; nocase; http_uri; pcre:"/%3b.*(?:ls|cat|bash|sh|whoami)/i"; sid:2015040; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - URL Encoded Pipe"; flow:established,to_server; content:"%7c"; nocase; http_uri; sid:2015041; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - URL Encoded Ampersand"; flow:established,to_server; content:"%26%26"; nocase; http_uri; sid:2015042; rev:1; classtype:web-application-attack; priority:1;)
+
+# Double URL encoding
+drop http any any -> any any (msg:"[ALERT] Command Injection - Double Encoded Semicolon"; flow:established,to_server; content:"%253b"; nocase; http_uri; sid:2015043; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Double Encoded Pipe"; flow:established,to_server; content:"%257c"; nocase; http_uri; sid:2015044; rev:1; classtype:web-application-attack; priority:1;)
+
+# Base64 encoded commands
+drop http any any -> any any (msg:"[ALERT] Command Injection - Base64 Encoded Command"; flow:established,to_server; pcre:"/(?:echo|printf).*\|.*base64.*-d/i"; sid:2015045; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# SPECIFIC COMMAND PATTERNS
+# ============================================
+
+# File operations
+drop http any any -> any any (msg:"[ALERT] Command Injection - cat with redirect"; flow:established,to_server; content:"cat"; nocase; http_uri; content:">"; http_uri; distance:0; sid:2015050; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - tee command"; flow:established,to_server; content:"tee"; nocase; http_uri; sid:2015051; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - dd command"; flow:established,to_server; content:"dd"; http_uri; pcre:"/\bdd\s+if=/i"; sid:2015052; rev:1; classtype:web-application-attack; priority:1;)
+
+# Network commands
+drop http any any -> any any (msg:"[ALERT] Command Injection - telnet command"; flow:established,to_server; content:"telnet"; nocase; http_uri; sid:2015060; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - ftp command"; flow:established,to_server; content:"ftp"; http_uri; pcre:"/\bftp\s+/i"; sid:2015061; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - ssh command"; flow:established,to_server; content:"ssh"; http_uri; pcre:"/\bssh\s+/i"; sid:2015062; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - scp command"; flow:established,to_server; content:"scp"; http_uri; pcre:"/\bscp\s+/i"; sid:2015063; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - nslookup command"; flow:established,to_server; content:"nslookup"; nocase; http_uri; sid:2015064; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - dig command"; flow:established,to_server; content:"dig"; http_uri; pcre:"/\bdig\s+/i"; sid:2015065; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - host command"; flow:established,to_server; content:"host"; http_uri; pcre:"/\bhost\s+\d/i"; sid:2015066; rev:1; classtype:web-application-attack; priority:1;)
+
+# Process commands
+drop http any any -> any any (msg:"[ALERT] Command Injection - ps command"; flow:established,to_server; content:"ps"; http_uri; pcre:"/\bps\s+/i"; sid:2015070; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - top command"; flow:established,to_server; content:"top"; http_uri; pcre:"/\btop\b/i"; sid:2015071; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - kill command"; flow:established,to_server; content:"kill"; http_uri; pcre:"/\bkill\s+-/i"; sid:2015072; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - pkill command"; flow:established,to_server; content:"pkill"; nocase; http_uri; sid:2015073; rev:1; classtype:web-application-attack; priority:1;)
+
+# System information
+drop http any any -> any any (msg:"[ALERT] Command Injection - ifconfig command"; flow:established,to_server; content:"ifconfig"; nocase; http_uri; sid:2015080; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - ip addr command"; flow:established,to_server; content:"ip"; http_uri; content:"addr"; nocase; distance:0; sid:2015081; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - netstat command"; flow:established,to_server; content:"netstat"; nocase; http_uri; sid:2015082; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - iptables command"; flow:established,to_server; content:"iptables"; nocase; http_uri; sid:2015083; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - route command"; flow:established,to_server; content:"route"; http_uri; pcre:"/\broute\s+/i"; sid:2015084; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# WINDOWS COMMAND INJECTION
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Windows dir command"; flow:established,to_server; content:"dir"; http_uri; pcre:"/\bdir\s+[a-z]:/i"; sid:2015090; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Windows type command"; flow:established,to_server; content:"type"; http_uri; pcre:"/\btype\s+[a-z]:/i"; sid:2015091; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Windows copy command"; flow:established,to_server; content:"copy"; http_uri; pcre:"/\bcopy\s+/i"; sid:2015092; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Windows move command"; flow:established,to_server; content:"move"; http_uri; pcre:"/\bmove\s+/i"; sid:2015093; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Windows del command"; flow:established,to_server; content:"del"; http_uri; pcre:"/\bdel\s+/i"; sid:2015094; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Windows net command"; flow:established,to_server; content:"net"; http_uri; pcre:"/\bnet\s+(user|group|share)/i"; sid:2015095; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Windows ipconfig"; flow:established,to_server; content:"ipconfig"; nocase; http_uri; sid:2015096; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Windows tasklist"; flow:established,to_server; content:"tasklist"; nocase; http_uri; sid:2015097; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Windows taskkill"; flow:established,to_server; content:"taskkill"; nocase; http_uri; sid:2015098; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# BLIND COMMAND INJECTION
+# ============================================
+
+# Time-based blind injection
+drop http any any -> any any (msg:"[ALERT] Command Injection - sleep command (Blind)"; flow:established,to_server; content:"sleep"; nocase; http_uri; pcre:"/sleep\s+\d+/i"; sid:2015100; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - ping for delay"; flow:established,to_server; content:"ping"; nocase; http_uri; content:"-c"; nocase; distance:0; sid:2015101; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - timeout command"; flow:established,to_server; content:"timeout"; nocase; http_uri; pcre:"/timeout\s+\d+/i"; sid:2015102; rev:1; classtype:web-application-attack; priority:1;)
+
+# Out-of-band (OOB) detection
+drop http any any -> any any (msg:"[ALERT] Command Injection - wget OOB"; flow:established,to_server; content:"wget"; nocase; http_uri; pcre:"/wget\s+http/i"; sid:2015110; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - curl OOB"; flow:established,to_server; content:"curl"; nocase; http_uri; pcre:"/curl\s+http/i"; sid:2015111; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - nslookup OOB"; flow:established,to_server; content:"nslookup"; nocase; http_uri; pcre:"/nslookup.*\./i"; sid:2015112; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# INPUT REDIRECTION
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Input Redirect"; flow:established,to_server; content:"<"; http_uri; pcre:"/<.*(?:\/etc\/|\.sh|\.txt)/i"; sid:2015120; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Output Redirect"; flow:established,to_server; content:">"; http_uri; pcre:"/>.*\.(?:txt|log|php|sh)/i"; sid:2015121; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Append Redirect"; flow:established,to_server; content:">>"; http_uri; sid:2015122; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Here Document"; flow:established,to_server; content:"<<"; http_uri; sid:2015123; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# FILTER BYPASS TECHNIQUES
+# ============================================
+
+# Wildcard abuse
+drop http any any -> any any (msg:"[ALERT] Command Injection - Wildcard Obfuscation"; flow:established,to_server; pcre:"/\/bin\/\*sh|c\*t\s+\/etc|\/\*tc\/pass\*/i"; sid:2015130; rev:1; classtype:web-application-attack; priority:1;)
+
+# Space alternatives
+drop http any any -> any any (msg:"[ALERT] Command Injection - IFS Space Bypass"; flow:established,to_server; content:"$IFS"; http_uri; sid:2015131; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Tab Space Bypass"; flow:established,to_server; content:"%09"; http_uri; pcre:"/%09(?:cat|ls|bash)/i"; sid:2015132; rev:1; classtype:web-application-attack; priority:1;)
+
+# Brace expansion
+drop http any any -> any any (msg:"[ALERT] Command Injection - Brace Expansion"; flow:established,to_server; pcre:"/\{.*,.*\}/"; content:"cat"; nocase; distance:0; sid:2015133; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# POST DATA COMMAND INJECTION
+# ============================================
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - In POST Body"; flow:established,to_server; content:"POST"; http_method; pcre:"/[\|\&\;].*(?:cat|ls|bash|sh|whoami|id)/i"; sid:2015140; rev:1; classtype:web-application-attack; priority:1;)
+
+drop http any any -> any any (msg:"[ALERT] Command Injection - Command Chaining in POST"; flow:established,to_server; content:"POST"; http_method; content:"&&"; http_client_body; sid:2015141; rev:1; classtype:web-application-attack; priority:1;)
+
+
+
+# ============================================
+# WMI (Windows Management Instrumentation) EXPLOITS
+# Blue Team CTF - Created: 2024-12-17
+# SID Range: 2016xxx (New dedicated range)
+# ============================================
+
+# ============================================
+# WMI LATERAL MOVEMENT
+# ============================================
+
+# DCOM-based WMI (Port 135 - RPC Endpoint Mapper)
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Remote Process Creation"; flow:to_server,established; content:"Win32_Process"; nocase; sid:2016001; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - DCOM Lateral Movement"; flow:to_server,established; content:"IWbemServices"; nocase; sid:2016002; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Remote WMI Query"; flow:to_server,established; content:"WBEM"; nocase; threshold:type threshold, track by_src, count 5, seconds 60; sid:2016003; rev:1; classtype:attempted-recon; priority:1;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - IWbemLevel1Login"; flow:to_server,established; content:"IWbemLevel1Login"; nocase; sid:2016004; rev:1; classtype:trojan-activity; priority:1;)
+
+# Dynamic RPC ports for WMI (49152-65535)
+drop tcp any any -> any [49152:65535] (msg:"[ALERT] WMI - High Port DCOM Activity"; flow:to_server,established; content:"|05 00|"; depth:2; threshold:type threshold, track by_src, count 10, seconds 60; sid:2016005; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# WMIC.EXE COMMAND EXECUTION
+# ============================================
+
+drop tcp any any -> any 445 (msg:"[ALERT] WMI - WMIC Remote Execution"; flow:to_server,established; content:"wmic"; nocase; sid:2016010; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 445 (msg:"[ALERT] WMI - WMIC Process Call Create"; flow:to_server,established; content:"wmic"; nocase; content:"process"; nocase; distance:0; content:"call"; nocase; distance:0; content:"create"; nocase; distance:0; sid:2016011; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 445 (msg:"[ALERT] WMI - WMIC Service Manipulation"; flow:to_server,established; content:"wmic"; nocase; content:"service"; nocase; distance:0; sid:2016012; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 445 (msg:"[ALERT] WMI - WMIC User Account Manipulation"; flow:to_server,established; content:"wmic"; nocase; content:"useraccount"; nocase; distance:0; sid:2016013; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 445 (msg:"[ALERT] WMI - WMIC Product Uninstall"; flow:to_server,established; content:"wmic"; nocase; content:"product"; nocase; distance:0; content:"uninstall"; nocase; distance:0; sid:2016014; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 445 (msg:"[ALERT] WMI - WMIC Registry Manipulation"; flow:to_server,established; content:"wmic"; nocase; content:"registry"; nocase; distance:0; sid:2016015; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 445 (msg:"[ALERT] WMI - WMIC Startup Entry"; flow:to_server,established; content:"wmic"; nocase; content:"startup"; nocase; distance:0; sid:2016016; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 445 (msg:"[ALERT] WMI - WMIC QFE Query (Patch Enumeration)"; flow:to_server,established; content:"wmic"; nocase; content:"qfe"; nocase; distance:0; sid:2016017; rev:1; classtype:attempted-recon; priority:1;)
+
+drop tcp any any -> any 445 (msg:"[ALERT] WMI - WMIC Share Enumeration"; flow:to_server,established; content:"wmic"; nocase; content:"share"; nocase; distance:0; sid:2016018; rev:1; classtype:attempted-recon; priority:1;)
+
+drop tcp any any -> any 445 (msg:"[ALERT] WMI - WMIC OS Information Gathering"; flow:to_server,established; content:"wmic"; nocase; content:"os"; nocase; distance:0; sid:2016019; rev:1; classtype:attempted-recon; priority:1;)
+
+drop tcp any any -> any 445 (msg:"[ALERT] WMI - WMIC LogicalDisk Query"; flow:to_server,established; content:"wmic"; nocase; content:"logicaldisk"; nocase; distance:0; sid:2016020; rev:1; classtype:attempted-recon; priority:1;)
+
+# ============================================
+# POWERSHELL WMI CMDLETS
+# ============================================
+
+drop tcp any any -> any any (msg:"[ALERT] WMI - PowerShell Get-WmiObject"; flow:established; content:"Get-WmiObject"; nocase; sid:2016030; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any any (msg:"[ALERT] WMI - PowerShell Invoke-WmiMethod"; flow:established; content:"Invoke-WmiMethod"; nocase; sid:2016031; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any any (msg:"[ALERT] WMI - PowerShell Set-WmiInstance"; flow:established; content:"Set-WmiInstance"; nocase; sid:2016032; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any any (msg:"[ALERT] WMI - PowerShell Remove-WmiObject"; flow:established; content:"Remove-WmiObject"; nocase; sid:2016033; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any any (msg:"[ALERT] WMI - PowerShell Register-WmiEvent"; flow:established; content:"Register-WmiEvent"; nocase; sid:2016034; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any any (msg:"[ALERT] WMI - PowerShell Get-CimInstance"; flow:established; content:"Get-CimInstance"; nocase; sid:2016035; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any any (msg:"[ALERT] WMI - PowerShell Invoke-CimMethod"; flow:established; content:"Invoke-CimMethod"; nocase; sid:2016036; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any any (msg:"[ALERT] WMI - PowerShell New-CimSession"; flow:established; content:"New-CimSession"; nocase; sid:2016037; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# WMI PROCESS CREATION (Win32_Process)
+# ============================================
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Win32_Process Create Method"; flow:to_server,established; content:"Win32_Process"; nocase; content:"Create"; nocase; distance:0; sid:2016040; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - CommandLineEventConsumer"; flow:to_server,established; content:"CommandLineEventConsumer"; nocase; sid:2016041; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - ActiveScriptEventConsumer"; flow:to_server,established; content:"ActiveScriptEventConsumer"; nocase; sid:2016042; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# WMI PERSISTENCE
+# ============================================
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Event Filter Creation"; flow:to_server,established; content:"__EventFilter"; nocase; sid:2016050; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - FilterToConsumerBinding"; flow:to_server,established; content:"__FilterToConsumerBinding"; nocase; sid:2016051; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Timer Event Filter"; flow:to_server,established; content:"__TimerInstruction"; nocase; sid:2016052; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Interval Timer Event"; flow:to_server,established; content:"__IntervalTimerInstruction"; nocase; sid:2016053; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Absolute Timer Event"; flow:to_server,established; content:"__AbsoluteTimerInstruction"; nocase; sid:2016054; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Registry Event Subscription"; flow:to_server,established; content:"RegistryKeyChangeEvent"; nocase; sid:2016055; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - File System Event Subscription"; flow:to_server,established; content:"__InstanceCreationEvent"; nocase; content:"CIM_DataFile"; nocase; distance:0; sid:2016056; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Process Start Event Subscription"; flow:to_server,established; content:"__InstanceCreationEvent"; nocase; content:"Win32_Process"; nocase; distance:0; sid:2016057; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# WMI RECONNAISSANCE
+# ============================================
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Win32_ComputerSystem Query"; flow:to_server,established; content:"Win32_ComputerSystem"; nocase; sid:2016060; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Win32_OperatingSystem Query"; flow:to_server,established; content:"Win32_OperatingSystem"; nocase; sid:2016061; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Win32_Service Enumeration"; flow:to_server,established; content:"Win32_Service"; nocase; threshold:type threshold, track by_src, count 5, seconds 60; sid:2016062; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Win32_Process Enumeration"; flow:to_server,established; content:"Win32_Process"; nocase; threshold:type threshold, track by_src, count 5, seconds 60; sid:2016063; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Win32_LoggedOnUser Query"; flow:to_server,established; content:"Win32_LoggedOnUser"; nocase; sid:2016064; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Win32_UserAccount Enumeration"; flow:to_server,established; content:"Win32_UserAccount"; nocase; sid:2016065; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Win32_Group Enumeration"; flow:to_server,established; content:"Win32_Group"; nocase; sid:2016066; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Win32_NetworkAdapterConfiguration"; flow:to_server,established; content:"Win32_NetworkAdapterConfiguration"; nocase; sid:2016067; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Win32_Share Enumeration"; flow:to_server,established; content:"Win32_Share"; nocase; sid:2016068; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Win32_Product Query"; flow:to_server,established; content:"Win32_Product"; nocase; sid:2016069; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Win32_StartupCommand Query"; flow:to_server,established; content:"Win32_StartupCommand"; nocase; sid:2016070; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - AntiVirusProduct Query"; flow:to_server,established; content:"AntiVirusProduct"; nocase; sid:2016071; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - FirewallProduct Query"; flow:to_server,established; content:"FirewallProduct"; nocase; sid:2016072; rev:1; classtype:attempted-recon; priority:2;)
+
+# ============================================
+# WMI NAMESPACE ACCESS
+# ============================================
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Root\\CIMV2 Namespace Access"; flow:to_server,established; content:"root\\cimv2"; nocase; sid:2016080; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Root\\SecurityCenter Namespace"; flow:to_server,established; content:"root\\securitycenter"; nocase; sid:2016081; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Root\\Subscription Namespace"; flow:to_server,established; content:"root\\subscription"; nocase; sid:2016082; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Root\\Default Namespace"; flow:to_server,established; content:"root\\default"; nocase; sid:2016083; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Root\\Microsoft\\Windows\\SMB Namespace"; flow:to_server,established; content:"root\\microsoft\\windows\\smb"; nocase; sid:2016084; rev:1; classtype:attempted-recon; priority:2;)
+
+# ============================================
+# WMI OVER SMB
+# ============================================
+
+drop tcp any any -> any 445 (msg:"[ALERT] WMI - WMI Access via SMB"; flow:to_server,established; content:"|ff|SMB"; depth:5; content:"IPC$"; nocase; distance:0; content:"winmgmt"; nocase; distance:0; sid:2016090; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 445 (msg:"[ALERT] WMI - Named Pipe winmgmt Access"; flow:to_server,established; content:"\\PIPE\\winmgmt"; nocase; sid:2016091; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# WMI AUTHENTICATION
+# ============================================
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Multiple Authentication Failures"; flow:to_server,established; content:"WBEM"; nocase; threshold:type threshold, track by_src, count 10, seconds 60; sid:2016100; rev:1; classtype:attempted-user; priority:1;)
+
+# ============================================
+# WMI-BASED ATTACKS (MITRE ATT&CK)
+# ============================================
+
+# T1047 - Windows Management Instrumentation
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - MITRE T1047 Indicator"; flow:to_server,established; content:"Win32_Process"; nocase; content:"Create"; nocase; distance:0; sid:2016110; rev:1; classtype:trojan-activity; priority:1; reference:url,attack.mitre.org/techniques/T1047;)
+
+# T1546.003 - WMI Event Subscription Persistence
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - MITRE T1546.003 Event Subscription"; flow:to_server,established; content:"__EventFilter"; nocase; content:"__EventConsumer"; nocase; distance:0; sid:2016111; rev:1; classtype:trojan-activity; priority:1; reference:url,attack.mitre.org/techniques/T1546/003;)
+
+# ============================================
+# WMI TOOL DETECTION
+# ============================================
+
+drop tcp any any -> any any (msg:"[ALERT] WMI - WMIExec Tool"; flow:established; content:"wmiexec"; nocase; sid:2016120; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any any (msg:"[ALERT] WMI - WMImplant Framework"; flow:established; content:"wmimplant"; nocase; sid:2016121; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any any (msg:"[ALERT] WMI - Invoke-WMIMethod.ps1"; flow:established; content:"Invoke-WMIMethod.ps1"; nocase; sid:2016122; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any any (msg:"[ALERT] WMI - SharpWMI Tool"; flow:established; content:"SharpWMI"; nocase; sid:2016123; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# WMI EXFILTRATION
+# ============================================
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Large Data Transfer"; flow:to_server,established; dsize:>100000; content:"WBEM"; nocase; sid:2016130; rev:1; classtype:policy-violation; priority:1;)
+
+drop tcp any any -> any 135 (msg:"[ALERT] WMI - Excessive Query Activity"; flow:to_server,established; content:"SELECT"; nocase; threshold:type threshold, track by_src, count 50, seconds 60; sid:2016131; rev:1; classtype:attempted-recon; priority:2;)
+
+# ============================================
+# WSMan / WinRM (Windows Remote Management) EXPLOITS
+# Blue Team CTF - Created: 2024-12-17
+# SID Range: 2017xxx (New dedicated range)
+# ============================================
+
+# ============================================
+# WINRM AUTHENTICATION ATTACKS
+# ============================================
+
+# WinRM HTTP (Port 5985)
+drop tcp any any -> any 5985 (msg:"[ALERT] WinRM - Brute Force Attack (HTTP)"; flow:to_server; threshold:type threshold, track by_src, count 5, seconds 60; sid:2017001; rev:1; classtype:attempted-user; priority:1;)
+
+# WinRM HTTPS (Port 5986)
+drop tcp any any -> any 5986 (msg:"[ALERT] WinRM - Brute Force Attack (HTTPS)"; flow:to_server; threshold:type threshold, track by_src, count 5, seconds 60; sid:2017002; rev:1; classtype:attempted-user; priority:1;)
+
+# Multiple failed authentication attempts
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - Multiple Authentication Failures"; flow:to_server,established; content:"401"; threshold:type threshold, track by_src, count 10, seconds 120; sid:2017003; rev:1; classtype:attempted-user; priority:1;)
+
+# Password spraying pattern
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - Password Spraying Detected"; flow:to_server; threshold:type threshold, track by_src, count 20, seconds 300; sid:2017004; rev:1; classtype:attempted-user; priority:1;)
+
+# ============================================
+# POWERSHELL REMOTING (PSRemoting)
+# ============================================
+
+# Invoke-Command
+drop tcp any any -> any any (msg:"[ALERT] WinRM - PowerShell Invoke-Command"; flow:established; content:"Invoke-Command"; nocase; sid:2017010; rev:1; classtype:trojan-activity; priority:1;)
+
+# Enter-PSSession
+drop tcp any any -> any any (msg:"[ALERT] WinRM - PowerShell Enter-PSSession"; flow:established; content:"Enter-PSSession"; nocase; sid:2017011; rev:1; classtype:trojan-activity; priority:1;)
+
+# New-PSSession
+drop tcp any any -> any any (msg:"[ALERT] WinRM - PowerShell New-PSSession"; flow:established; content:"New-PSSession"; nocase; sid:2017012; rev:1; classtype:trojan-activity; priority:1;)
+
+# PowerShell Remoting with ComputerName
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - PSRemoting ComputerName Parameter"; flow:to_server,established; content:"-ComputerName"; nocase; sid:2017013; rev:1; classtype:trojan-activity; priority:1;)
+
+# PowerShell Remoting with Credential
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - PSRemoting Credential Usage"; flow:to_server,established; content:"-Credential"; nocase; sid:2017014; rev:1; classtype:trojan-activity; priority:1;)
+
+# Remote ScriptBlock execution
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - ScriptBlock Execution"; flow:to_server,established; content:"-ScriptBlock"; nocase; sid:2017015; rev:1; classtype:trojan-activity; priority:1;)
+
+# PowerShell Empire over WinRM
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - PowerShell Empire Session"; flow:established; content:"powershell.exe"; nocase; content:"-enc"; nocase; distance:0; sid:2017016; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# WSMAN PROTOCOL SPECIFICS
+# ============================================
+
+# WSMan enumeration
+drop http any any -> any 5985 (msg:"[ALERT] WSMan - Enumeration Request"; flow:to_server,established; content:"Enumerate"; nocase; http_uri; sid:2017020; rev:1; classtype:attempted-recon; priority:2;)
+
+# WSMan Identify
+drop http any any -> any 5985 (msg:"[ALERT] WSMan - Identify Request"; flow:to_server,established; content:"wsmid:Identify"; nocase; sid:2017021; rev:1; classtype:attempted-recon; priority:2;)
+
+# WSMan Get
+drop http any any -> any 5985 (msg:"[ALERT] WSMan - Get Request"; flow:to_server,established; content:"wxf:Get"; nocase; sid:2017022; rev:1; classtype:attempted-recon; priority:2;)
+
+# WSMan Put (modification)
+drop http any any -> any 5985 (msg:"[ALERT] WSMan - Put Request (Modification)"; flow:to_server,established; content:"wxf:Put"; nocase; sid:2017023; rev:1; classtype:trojan-activity; priority:1;)
+
+# WSMan Create
+drop http any any -> any 5985 (msg:"[ALERT] WSMan - Create Request"; flow:to_server,established; content:"wxf:Create"; nocase; sid:2017024; rev:1; classtype:trojan-activity; priority:1;)
+
+# WSMan Delete
+drop http any any -> any 5985 (msg:"[ALERT] WSMan - Delete Request"; flow:to_server,established; content:"wxf:Delete"; nocase; sid:2017025; rev:1; classtype:trojan-activity; priority:1;)
+
+# WSMan Invoke
+drop http any any -> any 5985 (msg:"[ALERT] WSMan - Invoke Method"; flow:to_server,established; content:"wxf:Invoke"; nocase; sid:2017026; rev:1; classtype:trojan-activity; priority:1;)
+
+# WSMan Shell creation
+drop http any any -> any 5985 (msg:"[ALERT] WSMan - Shell Creation"; flow:to_server,established; content:"rsp:Shell"; nocase; sid:2017027; rev:1; classtype:trojan-activity; priority:1;)
+
+# WSMan Command execution
+drop http any any -> any 5985 (msg:"[ALERT] WSMan - Command Execution"; flow:to_server,established; content:"rsp:Command"; nocase; sid:2017028; rev:1; classtype:trojan-activity; priority:1;)
+
+# WSMan ResourceURI (sensitive paths)
+drop http any any -> any 5985 (msg:"[ALERT] WSMan - Shell ResourceURI Access"; flow:to_server,established; content:"ResourceURI"; nocase; content:"shell"; nocase; distance:0; sid:2017029; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# WINRM LATERAL MOVEMENT
+# ============================================
+
+# WinRM from workstation to workstation (unusual)
+drop tcp [172.16.201.165,172.16.201.166,172.16.201.167,172.16.201.168,172.16.201.169,172.16.201.171,172.16.201.172,172.16.201.173,172.16.201.174,172.16.201.175,172.16.201.177] any -> [172.16.201.165,172.16.201.166,172.16.201.167,172.16.201.168,172.16.201.169,172.16.201.171,172.16.201.172,172.16.201.173,172.16.201.174,172.16.201.175,172.16.201.177] [5985,5986] (msg:"[ALERT] WinRM - Workstation to Workstation"; flow:to_server; sid:2017030; rev:1; classtype:trojan-activity; priority:1;)
+
+# WinRM to multiple hosts (rapid lateral movement)
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - Rapid Multi-Host Access"; flow:to_server; threshold:type threshold, track by_src, count 10, seconds 60; sid:2017031; rev:1; classtype:trojan-activity; priority:1;)
+
+# WinRM with explicit credentials (pass-the-hash indicator)
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Explicit Credential Usage"; flow:to_server,established; content:"Authorization:"; nocase; http_header; content:"NTLM"; nocase; distance:0; sid:2017032; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# WINRM COMMAND EXECUTION PATTERNS
+# ============================================
+
+# cmd.exe execution via WinRM
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - cmd.exe Execution"; flow:to_server,established; content:"cmd.exe"; nocase; sid:2017040; rev:1; classtype:trojan-activity; priority:1;)
+
+# powershell.exe execution via WinRM
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - powershell.exe Execution"; flow:to_server,established; content:"powershell.exe"; nocase; sid:2017041; rev:1; classtype:trojan-activity; priority:1;)
+
+# Encoded PowerShell via WinRM
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Encoded PowerShell Command"; flow:to_server,established; content:"powershell"; nocase; content:"-enc"; nocase; distance:0; sid:2017042; rev:1; classtype:trojan-activity; priority:1;)
+
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - EncodedCommand Parameter"; flow:to_server,established; content:"-EncodedCommand"; nocase; sid:2017043; rev:1; classtype:trojan-activity; priority:1;)
+
+# Hidden PowerShell window
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Hidden PowerShell Window"; flow:to_server,established; content:"powershell"; nocase; content:"-WindowStyle Hidden"; nocase; distance:0; sid:2017044; rev:1; classtype:trojan-activity; priority:1;)
+
+# Bypass execution policy
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Execution Policy Bypass"; flow:to_server,established; content:"-ExecutionPolicy Bypass"; nocase; sid:2017045; rev:1; classtype:trojan-activity; priority:1;)
+
+# Download and execute pattern
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Download and Execute"; flow:to_server,established; content:"Invoke-WebRequest"; nocase; content:"Invoke-Expression"; nocase; distance:0; sid:2017046; rev:1; classtype:trojan-activity; priority:1;)
+
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - IEX Download Cradle"; flow:to_server,established; content:"IEX"; nocase; pcre:"/IEX.*\(.*WebClient/i"; sid:2017047; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# WINRM PERSISTENCE
+# ============================================
+
+# Scheduled task creation via WinRM
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Scheduled Task Creation"; flow:to_server,established; content:"schtasks"; nocase; content:"/create"; nocase; distance:0; sid:2017050; rev:1; classtype:trojan-activity; priority:1;)
+
+# Service creation via WinRM
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Service Creation"; flow:to_server,established; content:"sc.exe"; nocase; content:"create"; nocase; distance:0; sid:2017051; rev:1; classtype:trojan-activity; priority:1;)
+
+# Registry Run key modification via WinRM
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Registry Run Key Modification"; flow:to_server,established; content:"reg"; nocase; content:"add"; nocase; content:"Run"; nocase; distance:0; sid:2017052; rev:1; classtype:trojan-activity; priority:1;)
+
+# WMI Event Subscription via WinRM
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - WMI Event Subscription"; flow:to_server,established; content:"Register-WmiEvent"; nocase; sid:2017053; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# WINRM CREDENTIAL THEFT
+# ============================================
+
+# Mimikatz over WinRM
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Mimikatz Execution"; flow:to_server,established; content:"mimikatz"; nocase; sid:2017060; rev:1; classtype:credential-theft; priority:1;)
+
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Mimikatz Invoke-Mimikatz"; flow:to_server,established; content:"Invoke-Mimikatz"; nocase; sid:2017061; rev:1; classtype:credential-theft; priority:1;)
+
+# LSASS dump via WinRM
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - LSASS Memory Dump"; flow:to_server,established; content:"lsass"; nocase; content:"dump"; nocase; distance:0; sid:2017062; rev:1; classtype:credential-theft; priority:1;)
+
+# ProcDump LSASS via WinRM
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - ProcDump LSASS"; flow:to_server,established; content:"procdump"; nocase; content:"lsass"; nocase; distance:0; sid:2017063; rev:1; classtype:credential-theft; priority:1;)
+
+# SAM/SYSTEM dump via WinRM
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - SAM Database Access"; flow:to_server,established; content:"reg"; nocase; content:"save"; nocase; content:"SAM"; nocase; distance:0; sid:2017064; rev:1; classtype:credential-theft; priority:1;)
+
+# ============================================
+# WINRM RECONNAISSANCE
+# ============================================
+
+# System information gathering
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - System Information Query"; flow:to_server,established; content:"systeminfo"; nocase; sid:2017070; rev:1; classtype:attempted-recon; priority:2;)
+
+# Network configuration query
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - ipconfig Query"; flow:to_server,established; content:"ipconfig"; nocase; sid:2017071; rev:1; classtype:attempted-recon; priority:2;)
+
+# User enumeration
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - User Enumeration"; flow:to_server,established; content:"net user"; nocase; sid:2017072; rev:1; classtype:attempted-recon; priority:2;)
+
+# Group enumeration
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Group Enumeration"; flow:to_server,established; content:"net group"; nocase; sid:2017073; rev:1; classtype:attempted-recon; priority:2;)
+
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Local Group Enumeration"; flow:to_server,established; content:"net localgroup"; nocase; sid:2017074; rev:1; classtype:attempted-recon; priority:2;)
+
+# Domain information
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Domain Information Query"; flow:to_server,established; content:"nltest"; nocase; sid:2017075; rev:1; classtype:attempted-recon; priority:2;)
+
+# Active Directory queries
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - AD Query via dsquery"; flow:to_server,established; content:"dsquery"; nocase; sid:2017076; rev:1; classtype:attempted-recon; priority:2;)
+
+# Process enumeration
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Process Enumeration"; flow:to_server,established; content:"tasklist"; nocase; sid:2017077; rev:1; classtype:attempted-recon; priority:2;)
+
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Get-Process Query"; flow:to_server,established; content:"Get-Process"; nocase; sid:2017078; rev:1; classtype:attempted-recon; priority:2;)
+
+# Service enumeration
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Service Enumeration"; flow:to_server,established; content:"Get-Service"; nocase; sid:2017079; rev:1; classtype:attempted-recon; priority:2;)
+
+# Share enumeration
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Share Enumeration"; flow:to_server,established; content:"net share"; nocase; sid:2017080; rev:1; classtype:attempted-recon; priority:2;)
+
+# ============================================
+# WINRM TOOLS DETECTION
+# ============================================
+
+# Evil-WinRM
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - Evil-WinRM Tool"; flow:established; content:"Evil-WinRM"; nocase; sid:2017090; rev:1; classtype:trojan-activity; priority:1;)
+
+# CrackMapExec WinRM module
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - CrackMapExec"; flow:established; content:"CME"; nocase; sid:2017091; rev:1; classtype:trojan-activity; priority:1;)
+
+# Metasploit WinRM modules
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - Metasploit Module"; flow:established; content:"Metasploit"; nocase; sid:2017092; rev:1; classtype:trojan-activity; priority:1;)
+
+# Impacket wmiexec
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - Impacket Usage"; flow:established; content:"impacket"; nocase; sid:2017093; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# WINRM CONFIGURATION CHANGES
+# ============================================
+
+# WinRM listener configuration changes
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Listener Configuration Change"; flow:to_server,established; content:"winrm"; nocase; content:"set"; nocase; content:"config"; nocase; distance:0; sid:2017100; rev:1; classtype:trojan-activity; priority:1;)
+
+# Enable WinRM remotely
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Remote Enable"; flow:to_server,established; content:"Enable-PSRemoting"; nocase; sid:2017101; rev:1; classtype:trojan-activity; priority:1;)
+
+# TrustedHosts modification
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - TrustedHosts Modification"; flow:to_server,established; content:"TrustedHosts"; nocase; sid:2017102; rev:1; classtype:trojan-activity; priority:1;)
+
+# Authentication method changes
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Authentication Config Change"; flow:to_server,established; content:"winrm"; nocase; content:"auth"; nocase; distance:0; sid:2017103; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# WINRM OVER HTTP (Insecure)
+# ============================================
+
+# Detect plain HTTP WinRM (should use HTTPS)
+alert tcp any any -> any 5985 (msg:"[ALERT] WinRM - Unencrypted HTTP Communication"; flow:to_server,established; threshold:type threshold, track by_src, count 5, seconds 60; sid:2017110; rev:1; classtype:policy-violation; priority:2;)
+
+# Credentials over HTTP
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Credentials over HTTP"; flow:to_server,established; content:"Authorization:"; nocase; http_header; sid:2017111; rev:1; classtype:credential-theft; priority:1;)
+
+# ============================================
+# WINRM CREDSSP ATTACKS
+# ============================================
+
+# CredSSP delegation
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - CredSSP Delegation Detected"; flow:to_server,established; content:"CredSSP"; nocase; sid:2017120; rev:1; classtype:policy-violation; priority:1;)
+
+# Authentication delegation abuse
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - Authentication Delegation Abuse"; flow:to_server,established; content:"AllowFreshCredentials"; nocase; sid:2017121; rev:1; classtype:policy-violation; priority:1;)
+
+# ============================================
+# WINRM DATA EXFILTRATION
+# ============================================
+
+# Large data transfer via WinRM
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - Large Data Exfiltration"; flow:established; dsize:>5000000; threshold:type threshold, track by_src, count 3, seconds 60; sid:2017130; rev:1; classtype:policy-violation; priority:1;)
+
+# File download via WinRM
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - Copy-Item Download"; flow:to_server,established; content:"Copy-Item"; nocase; content:"-Destination"; nocase; distance:0; sid:2017131; rev:1; classtype:policy-violation; priority:1;)
+
+# ============================================
+# WINRM MITRE ATT&CK MAPPINGS
+# ============================================
+
+# T1021.006 - Remote Services: Windows Remote Management
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - MITRE T1021.006 Remote Access"; flow:to_server; threshold:type threshold, track by_src, count 3, seconds 120; sid:2017140; rev:1; classtype:trojan-activity; priority:1; reference:url,attack.mitre.org/techniques/T1021/006;)
+
+# T1059.001 - PowerShell via WinRM
+drop http any any -> any 5985 (msg:"[ALERT] WinRM - MITRE T1059.001 PowerShell"; flow:to_server,established; content:"powershell"; nocase; sid:2017141; rev:1; classtype:trojan-activity; priority:1; reference:url,attack.mitre.org/techniques/T1059/001;)
+
+# ============================================
+# WINRM SESSION ANOMALIES
+# ============================================
+
+# Long-duration sessions (potential backdoor)
+alert tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - Long Duration Session"; flow:established; threshold:type limit, track by_src, count 1, seconds 3600; sid:2017150; rev:1; classtype:policy-violation; priority:3;)
+
+# Excessive session creation
+drop tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - Excessive Session Creation"; flow:to_server; threshold:type threshold, track by_src, count 20, seconds 300; sid:2017151; rev:1; classtype:trojan-activity; priority:1;)
+
+# Off-hours access
+alert tcp any any -> any [5985,5986] (msg:"[ALERT] WinRM - Off-Hours Access"; flow:to_server; sid:2017152; rev:1; classtype:policy-violation; priority:2;)
+
+
+# ============================================
+# DNS (Port 53) - ENHANCED COVERAGE
+# Blue Team CTF - SID Range: 2018xxx
+# ============================================
+
+# DNS Zone Transfer
+drop tcp any any -> any 53 (msg:"[ALERT] DNS - Zone Transfer (AXFR)"; flow:to_server; content:"|00 00 fc|"; sid:2018001; rev:1; classtype:attempted-recon; priority:1;)
+
+# DNS Amplification Attack
+drop udp any any -> any 53 (msg:"[ALERT] DNS - Amplification Attack"; dsize:>512; threshold:type threshold, track by_dst, count 10, seconds 10; sid:2018002; rev:1; classtype:attempted-dos; priority:1;)
+
+# DNS Enumeration (excessive queries)
+alert dns any any -> any 53 (msg:"[ALERT] DNS - Excessive Subdomain Queries"; dns_query; threshold:type threshold, track by_src, count 100, seconds 60; sid:2018003; rev:1; classtype:attempted-recon; priority:2;)
+
+# DNS Cache Poisoning
+drop dns any any -> any 53 (msg:"[ALERT] DNS - Possible Cache Poisoning"; dns_query; content:"|00 01|"; offset:4; pcre:"/\x00\x01.{0,50}\x00\x01/"; sid:2018004; rev:1; classtype:attempted-recon; priority:1;)
+
+# Suspicious TXT queries (potential C2)
+alert dns any any -> any 53 (msg:"[ALERT] DNS - Suspicious TXT Query"; dns_query; content:"|00 10|"; offset:2; threshold:type threshold, track by_src, count 30, seconds 60; sid:2018005; rev:1; classtype:trojan-activity; priority:2;)
+
+# DNS to non-standard DNS servers
+alert dns $HOME_NET any -> !$HOME_NET 53 (msg:"[ALERT] DNS - Query to External DNS Server"; dns_query; sid:2018006; rev:1; classtype:policy-violation; priority:3;)
+
+# ============================================
+# KERBEROS PASSWORD CHANGE (Port 464)
+# ============================================
+
+drop tcp any any -> any 464 (msg:"[ALERT] Kerberos - Password Change Brute Force"; flow:to_server; threshold:type threshold, track by_src, count 10, seconds 120; sid:2018010; rev:1; classtype:attempted-user; priority:1;)
+
+drop tcp any any -> any 464 (msg:"[ALERT] Kerberos - kpasswd Protocol Abuse"; flow:to_server; content:"|00 01|"; depth:2; threshold:type threshold, track by_src, count 5, seconds 60; sid:2018011; rev:1; classtype:attempted-user; priority:1;)
+
+# ============================================
+# RPC ENDPOINT MAPPER (Port 593)
+# ============================================
+
+drop tcp any any -> any 593 (msg:"[ALERT] RPC - HTTP Endpoint Mapper Abuse"; flow:to_server; sid:2018020; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 593 (msg:"[ALERT] RPC - Excessive Endpoint Queries"; flow:to_server; threshold:type threshold, track by_src, count 20, seconds 60; sid:2018021; rev:1; classtype:attempted-recon; priority:2;)
+
+# ============================================
+# GLOBAL CATALOG LDAP (Ports 3268/3269)
+# ============================================
+
+drop tcp any any -> any 3268 (msg:"[ALERT] Global Catalog - Enumeration Attack"; flow:to_server,established; threshold:type threshold, track by_src, count 50, seconds 60; sid:2018030; rev:1; classtype:attempted-recon; priority:1;)
+
+drop tcp any any -> any 3269 (msg:"[ALERT] Global Catalog SSL - Enumeration Attack"; flow:to_server,established; threshold:type threshold, track by_src, count 50, seconds 60; sid:2018031; rev:1; classtype:attempted-recon; priority:1;)
+
+drop tcp any any -> any [3268,3269] (msg:"[ALERT] Global Catalog - Forest-wide Search"; flow:to_server,established; content:"objectClass=*"; nocase; sid:2018032; rev:1; classtype:attempted-recon; priority:1;)
+
+drop tcp any any -> any [3268,3269] (msg:"[ALERT] Global Catalog - User Enumeration"; flow:to_server,established; content:"objectCategory=person"; nocase; sid:2018033; rev:1; classtype:attempted-recon; priority:1;)
+
+# ============================================
+# FTP (Port 21) - ENHANCED COVERAGE
+# ============================================
+
+drop tcp any any -> any 21 (msg:"[ALERT] FTP - Brute Force Authentication"; flow:to_server; content:"USER"; threshold:type threshold, track by_src, count 10, seconds 60; sid:2018040; rev:1; classtype:attempted-user; priority:1;)
+
+drop tcp any any -> any 21 (msg:"[ALERT] FTP - Anonymous Login Attempt"; flow:to_server; content:"USER anonymous"; nocase; sid:2018041; rev:1; classtype:attempted-user; priority:2;)
+
+drop tcp any any -> any 21 (msg:"[ALERT] FTP - Directory Traversal"; flow:established; content:"CWD"; content:".."; distance:0; sid:2018042; rev:1; classtype:web-application-attack; priority:1;)
+
+drop tcp any any -> any 21 (msg:"[ALERT] FTP - Sensitive File Download"; flow:established; content:"RETR"; content:"passwd"; nocase; distance:0; sid:2018043; rev:1; classtype:policy-violation; priority:1;)
+
+drop tcp any any -> any 21 (msg:"[ALERT] FTP - Large Upload (Exfiltration)"; flow:established; content:"STOR"; dsize:>10000000; sid:2018044; rev:1; classtype:policy-violation; priority:1;)
+
+drop tcp any any -> any 21 (msg:"[ALERT] FTP - Bounce Attack"; flow:to_server; content:"PORT"; pcre:"/PORT\s+\d+,\d+,\d+,\d+/"; sid:2018045; rev:1; classtype:attempted-admin; priority:1;)
+
+# ============================================
+# MYSQL (Port 3306) - DATABASE ATTACKS
+# ============================================
+
+drop tcp any any -> any 3306 (msg:"[ALERT] MySQL - Brute Force Authentication"; flow:to_server; threshold:type threshold, track by_src, count 10, seconds 60; sid:2018050; rev:1; classtype:attempted-user; priority:1;)
+
+drop tcp any any -> any 3306 (msg:"[ALERT] MySQL - Root Login Attempt from External"; flow:to_server; content:"root"; nocase; sid:2018051; rev:1; classtype:attempted-admin; priority:1;)
+
+drop tcp any any -> any 3306 (msg:"[ALERT] MySQL - UDF Injection"; flow:established; content:"CREATE FUNCTION"; nocase; sid:2018052; rev:1; classtype:web-application-attack; priority:1;)
+
+drop tcp any any -> any 3306 (msg:"[ALERT] MySQL - INTO OUTFILE"; flow:established; content:"INTO OUTFILE"; nocase; sid:2018053; rev:1; classtype:web-application-attack; priority:1;)
+
+drop tcp any any -> any 3306 (msg:"[ALERT] MySQL - LOAD DATA INFILE"; flow:established; content:"LOAD DATA"; nocase; content:"INFILE"; nocase; distance:0; sid:2018054; rev:1; classtype:web-application-attack; priority:1;)
+
+drop tcp any any -> any 3306 (msg:"[ALERT] MySQL - mysql.user Table Access"; flow:established; content:"mysql.user"; nocase; sid:2018055; rev:1; classtype:credential-theft; priority:1;)
+
+# MySQL enumeration
+alert tcp any any -> any 3306 (msg:"[ALERT] MySQL - Database Enumeration"; flow:established; content:"SHOW DATABASES"; nocase; sid:2018056; rev:1; classtype:attempted-recon; priority:2;)
+
+alert tcp any any -> any 3306 (msg:"[ALERT] MySQL - Table Enumeration"; flow:established; content:"SHOW TABLES"; nocase; sid:2018057; rev:1; classtype:attempted-recon; priority:2;)
+
+# ============================================
+# NFS (Port 2049) - NETWORK FILE SYSTEM
+# ============================================
+
+drop tcp any any -> any 2049 (msg:"[ALERT] NFS - Unauthorized Mount Request"; flow:to_server; sid:2018060; rev:1; classtype:attempted-recon; priority:1;)
+
+drop tcp any any -> any 2049 (msg:"[ALERT] NFS - Export Enumeration"; flow:to_server; threshold:type threshold, track by_src, count 10, seconds 60; sid:2018061; rev:1; classtype:attempted-recon; priority:2;)
+
+drop udp any any -> any 2049 (msg:"[ALERT] NFS - UDP Mount Attempt"; sid:2018062; rev:1; classtype:attempted-recon; priority:1;)
+
+# ============================================
+# SMTP (Port 25) - EMAIL ATTACKS
+# ============================================
+
+drop tcp any any -> any 25 (msg:"[ALERT] SMTP - Brute Force Authentication"; flow:to_server; content:"AUTH"; threshold:type threshold, track by_src, count 10, seconds 120; sid:2018070; rev:1; classtype:attempted-user; priority:1;)
+
+drop tcp any any -> any 25 (msg:"[ALERT] SMTP - VRFY User Enumeration"; flow:to_server; content:"VRFY"; threshold:type threshold, track by_src, count 20, seconds 60; sid:2018071; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 25 (msg:"[ALERT] SMTP - EXPN Mailing List Enumeration"; flow:to_server; content:"EXPN"; sid:2018072; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 25 (msg:"[ALERT] SMTP - Open Relay Test"; flow:to_server; content:"RCPT TO:"; pcre:"/RCPT TO:.*@(?!yourdomain\.com)/i"; sid:2018073; rev:1; classtype:policy-violation; priority:2;)
+
+drop tcp any any -> any 25 (msg:"[ALERT] SMTP - Suspicious Attachment"; flow:established; content:"Content-Type:"; nocase; content:".exe"; nocase; distance:0; sid:2018074; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 25 (msg:"[ALERT] SMTP - Email Spoofing Attempt"; flow:to_server; content:"MAIL FROM:"; content:"@"; distance:0; sid:2018075; rev:1; classtype:policy-violation; priority:2;)
+
+# ============================================
+# RPCBIND (Port 111)
+# ============================================
+
+drop tcp any any -> any 111 (msg:"[ALERT] RPCBind - Service Enumeration"; flow:to_server; threshold:type threshold, track by_src, count 10, seconds 30; sid:2018080; rev:1; classtype:attempted-recon; priority:2;)
+
+drop udp any any -> any 111 (msg:"[ALERT] RPCBind - UDP Enumeration"; threshold:type threshold, track by_src, count 10, seconds 30; sid:2018081; rev:1; classtype:attempted-recon; priority:2;)
+
+# ============================================
+# VNC (Port 5900)
+# ============================================
+
+drop tcp any any -> any 5900 (msg:"[ALERT] VNC - Brute Force Attack"; flow:to_server; threshold:type threshold, track by_src, count 5, seconds 60; sid:2018090; rev:1; classtype:attempted-user; priority:1;)
+
+drop tcp any any -> any 5900 (msg:"[ALERT] VNC - RFB Protocol Handshake"; flow:to_server; content:"RFB"; depth:3; threshold:type threshold, track by_src, count 10, seconds 120; sid:2018091; rev:1; classtype:attempted-user; priority:1;)
+
+drop tcp any any -> any 5900 (msg:"[ALERT] VNC - Authentication Bypass Attempt"; flow:to_server; content:"RFB"; depth:3; content:"|00 00 00 00|"; sid:2018092; rev:1; classtype:attempted-admin; priority:1;)
+
+# VNC from workstation to workstation
+drop tcp [172.16.201.165,172.16.201.166,172.16.201.167,172.16.201.168,172.16.201.169] any -> any 5900 (msg:"[ALERT] VNC - Workstation Lateral Movement"; flow:to_server; sid:2018093; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# RSYNC (Port 873)
+# ============================================
+
+drop tcp any any -> any 873 (msg:"[ALERT] Rsync - Unauthorized Access"; flow:to_server; sid:2018100; rev:1; classtype:attempted-recon; priority:1;)
+
+drop tcp any any -> any 873 (msg:"[ALERT] Rsync - Module Enumeration"; flow:to_server; threshold:type threshold, track by_src, count 10, seconds 60; sid:2018101; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 873 (msg:"[ALERT] Rsync - Large Data Transfer (Exfiltration)"; flow:established; dsize:>10000000; sid:2018102; rev:1; classtype:policy-violation; priority:1;)
+
+# ============================================
+# SPLUNK (Ports 8000, 8089) - PROTECTION
+# ============================================
+
+# Splunk Web UI attacks
+drop tcp !$HOME_NET any -> any 8000 (msg:"[ALERT] Splunk - External Web Access Attempt"; flow:to_server; sid:2018110; rev:1; classtype:attempted-recon; priority:1;)
+
+drop tcp any any -> any 8000 (msg:"[ALERT] Splunk - Brute Force Web Login"; flow:to_server; content:"POST"; content:"/account/login"; http_uri; threshold:type threshold, track by_src, count 5, seconds 60; sid:2018111; rev:1; classtype:attempted-user; priority:1;)
+
+# Splunk Management Port (8089)
+drop tcp !$HOME_NET any -> any 8089 (msg:"[ALERT] Splunk - External Management API Access"; flow:to_server; sid:2018112; rev:1; classtype:attempted-admin; priority:1;)
+
+drop tcp any any -> any 8089 (msg:"[ALERT] Splunk - REST API Brute Force"; flow:to_server; threshold:type threshold, track by_src, count 10, seconds 120; sid:2018113; rev:1; classtype:attempted-user; priority:1;)
+
+drop tcp any any -> any 8089 (msg:"[ALERT] Splunk - Remote Code Execution via API"; flow:to_server,established; content:"/services/"; http_uri; content:"search/jobs"; http_uri; distance:0; sid:2018114; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# INFLUXDB (Port 8086)
+# ============================================
+
+drop tcp any any -> any 8086 (msg:"[ALERT] InfluxDB - Unauthorized Access"; flow:to_server; sid:2018120; rev:1; classtype:attempted-recon; priority:1;)
+
+drop tcp any any -> any 8086 (msg:"[ALERT] InfluxDB - Authentication Brute Force"; flow:to_server; content:"/query"; http_uri; threshold:type threshold, track by_src, count 10, seconds 60; sid:2018121; rev:1; classtype:attempted-user; priority:1;)
+
+drop tcp any any -> any 8086 (msg:"[ALERT] InfluxDB - Database Enumeration"; flow:to_server,established; content:"SHOW DATABASES"; nocase; sid:2018122; rev:1; classtype:attempted-recon; priority:2;)
+
+drop tcp any any -> any 8086 (msg:"[ALERT] InfluxDB - Data Exfiltration"; flow:established; content:"SELECT"; nocase; dsize:>100000; sid:2018123; rev:1; classtype:policy-violation; priority:1;)
+
+# ============================================
+# CUSTOM PORTS (Potential C2/Backdoors)
+# ============================================
+
+# Port 3000 (Often Node.js, Grafana, or custom apps)
+alert tcp any any -> any 3000 (msg:"[ALERT] Custom Service - Port 3000 Access"; flow:to_server; sid:2018130; rev:1; classtype:policy-violation; priority:3;)
+
+drop tcp !$HOME_NET any -> any 3000 (msg:"[ALERT] Custom Service - External Access to Port 3000"; flow:to_server; sid:2018131; rev:1; classtype:attempted-recon; priority:1;)
+
+# Port 5000 (Often Flask, custom apps)
+alert tcp any any -> any 5000 (msg:"[ALERT] Custom Service - Port 5000 Access"; flow:to_server; sid:2018132; rev:1; classtype:policy-violation; priority:3;)
+
+drop tcp !$HOME_NET any -> any 5000 (msg:"[ALERT] Custom Service - External Access to Port 5000"; flow:to_server; sid:2018133; rev:1; classtype:attempted-recon; priority:1;)
+
+# Port 9666 (Unknown - suspicious)
+alert tcp any any -> any 9666 (msg:"[ALERT] Suspicious Port - 9666 Access"; flow:to_server; sid:2018134; rev:1; classtype:policy-violation; priority:2;)
+
+drop tcp !$HOME_NET any -> any 9666 (msg:"[ALERT] Suspicious Port - External 9666 Access"; flow:to_server; sid:2018135; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# FILTERED PORTS (Potential C2 Backdoors)
+# ============================================
+
+# Port 3333 (Potential Metasploit/Backdoor)
+drop tcp any any -> any 3333 (msg:"[ALERT] Backdoor Port - 3333 Connection Attempt"; flow:to_server; sid:2018140; rev:1; classtype:trojan-activity; priority:1;)
+
+# Port 4444 (Common Metasploit default)
+drop tcp any any -> any 4444 (msg:"[ALERT] Backdoor Port - 4444 (Metasploit Default)"; flow:to_server; sid:2018141; rev:1; classtype:trojan-activity; priority:1;)
+
+# Reverse shell on 4444
+drop tcp $HOME_NET any -> any 4444 (msg:"[ALERT] Reverse Shell - Outbound to 4444"; flow:to_server; sid:2018142; rev:1; classtype:trojan-activity; priority:1;)
+
+# Port 5555 (Android ADB or backdoor)
+drop tcp any any -> any 5555 (msg:"[ALERT] Backdoor Port - 5555 Connection"; flow:to_server; sid:2018143; rev:1; classtype:trojan-activity; priority:1;)
+
+# Port 9999 (Common backdoor port)
+drop tcp any any -> any 9999 (msg:"[ALERT] Backdoor Port - 9999 Connection"; flow:to_server; sid:2018144; rev:1; classtype:trojan-activity; priority:1;)
+
+# Any outbound connection to these ports (reverse shells)
+drop tcp $HOME_NET any -> !$HOME_NET [3333,4444,5555,9999] (msg:"[ALERT] Reverse Shell - Outbound to Common Backdoor Ports"; flow:to_server; sid:2018145; rev:1; classtype:trojan-activity; priority:1;)
+
+# ============================================
+# HTTP-ALT (Port 8000) - Splunk Web
+# ============================================
+
+# Already covered above in Splunk section
+
+# ============================================
+# SERVICE-SPECIFIC EXPLOITATION
+# ============================================
+
+# InfluxDB RCE (CVE-2019-20933)
+drop http any any -> any 8086 (msg:"[ALERT] InfluxDB - JWT Authentication Bypass"; flow:to_server,established; content:"/query"; http_uri; content:"Authorization: Bearer"; http_header; sid:2018150; rev:1; classtype:attempted-admin; priority:1;)
+
+# Grafana exploitation (if port 3000 is Grafana)
+drop http any any -> any 3000 (msg:"[ALERT] Grafana - Path Traversal"; flow:to_server,established; content:"/public/plugins/"; http_uri; content:"../"; http_uri; distance:0; sid:2018151; rev:1; classtype:web-application-attack; priority:1;)
+
+# ============================================
+# CROSS-PROTOCOL ATTACKS
+# ============================================
+
+# HTTP to non-HTTP ports (protocol confusion)
+drop tcp any any -> any [21,22,25,110,143] (msg:"[ALERT] HTTP Request to Non-HTTP Service"; flow:to_server; content:"GET"; depth:3; sid:2018160; rev:1; classtype:protocol-command-decode; priority:1;)
+
+drop tcp any any -> any [21,22,25,110,143] (msg:"[ALERT] POST Request to Non-HTTP Service"; flow:to_server; content:"POST"; depth:4; sid:2018161; rev:1; classtype:protocol-command-decode; priority:1;)
+
+# ============================================
+# EXCESSIVE CONNECTION ATTEMPTS (General)
+# ============================================
+
+# Multiple service connections from same source
+alert tcp any any -> any any (msg:"[ALERT] Reconnaissance - Multiple Service Access"; flow:to_server; threshold:type threshold, track by_src, count 50, seconds 60; sid:2018170; rev:1; classtype:attempted-recon; priority:3;)
+
+# Connections to multiple filtered ports (backdoor hunting)
+alert tcp any any -> any [3333,4444,5555,9999] (msg:"[ALERT] Backdoor Hunting - Filtered Port Access"; flow:to_server; threshold:type threshold, track by_src, count 4, seconds 30; sid:2018171; rev:1; classtype:attempted-recon; priority:2;)
