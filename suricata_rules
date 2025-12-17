@@ -1,6 +1,6 @@
 # ============================================
 # ALLOWLIST - SPLUNK SIEM (172.16.201.102)
-
+# CTF Suricata Rules
 # Allow all HTTP/HTTPS traffic to Splunk
 pass tcp any any -> 172.16.201.102 [8000,8089,8191,9997] (msg:"[ALLOWLIST] Splunk - Inbound to SIEM"; flow:to_server; sid:1000100; rev:1; priority:1;)
 # Allow all HTTP/HTTPS traffic from Splunk
@@ -15,14 +15,6 @@ pass tcp any any -> 172.16.201.102 8089 (msg:"[ALLOWLIST] Splunk - Management AP
 pass http 172.16.201.102 any -> any any (msg:"[ALLOWLIST] Splunk - HTTP Queries"; flow:to_server; sid:1000105; rev:1; priority:1;)
 # Allow all traffic between Splunk and BareMetalLinux (in case you're using it as forwarder)
 pass tcp any any <> 172.16.201.102 any (msg:"[ALLOWLIST] Splunk - Bidirectional Traffic"; sid:1000106; rev:1; priority:1;)
-    msg:"PHISHING - Suspicious Attachment Sent Internally (.exe)";
-    flow:to_server,established;
-    pcre:"/Content-Disposition:\s*attachment/i";
-    content:".exe"; nocase;
-    sid:1000001; rev:1;)
-    msg:"PHISHING - Suspicious Attachment Sent Internally (.bin)";
-    content:".bin"; nocase;
-    sid:1000002; rev:1;)
 # CREDENTIAL ATTACKS - IMMEDIATE BLOCK
 # SMB Brute Force - DROP
 drop tcp any any -> any 445 (msg:"[ALERT] SMB Brute Force Attack"; flow:to_server,established; content:"|ff|SMB"; depth:5; threshold:type threshold, track by_src, count 5, seconds 60; sid:2000001; rev:1; priority:1;)
