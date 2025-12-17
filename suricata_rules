@@ -970,309 +970,172 @@ drop udp any any -> any 546 (msg:"[ALERT] IPv6 - Rogue DHCPv6 Server"; sid:20260
 alert tcp any any -> any any (msg:"[ALERT] Anomaly - Unusual Protocol on Standard Port"; flow:established; dsize:>1000; sid:2027001; rev:1; classtype:unknown; priority:3;)
 # Network beaconing (any protocol)
 alert tcp $HOME_NET any -> !$HOME_NET any (msg:"[ALERT] Network Beaconing Detected"; flow:established; threshold:type both, track by_src, count 20, seconds 600; sid:2027002; rev:1; classtype:trojan-activity; priority:2;)
-
-
-# ============================================
 # PASS-THE-HASH (PtH) DETECTION
-# ============================================
-
 # PsExec with NTLM hash (no password)
 drop tcp any any -> any 445 (msg:"[ALERT] Pass-the-Hash - PsExec Execution"; flow:to_server,established; content:"|ff|SMB"; depth:5; content:"NTLMSSP"; distance:0; content:"PSEXESVC"; nocase; distance:0; sid:2028001; rev:1; classtype:credential-theft; priority:1;)
-
 # SMB authentication without Kerberos (PtH indicator)
 drop tcp any any -> any 445 (msg:"[ALERT] Pass-the-Hash - NTLM-only Authentication"; flow:to_server,established; content:"NTLMSSP"; content:"|01 00 00 00|"; distance:0; sid:2028002; rev:1; classtype:credential-theft; priority:1;)
-
 # Rapid NTLM authentication to multiple hosts (PtH lateral movement)
 drop tcp any any -> any 445 (msg:"[ALERT] Pass-the-Hash - Rapid Multi-Host Authentication"; flow:to_server,established; content:"NTLMSSP"; threshold:type threshold, track by_src, count 10, seconds 60; sid:2028003; rev:1; classtype:credential-theft; priority:1;)
-
 # SMB session with empty password (hash used)
 drop tcp any any -> any 445 (msg:"[ALERT] Pass-the-Hash - Empty Password with NTLM"; flow:to_server,established; content:"NTLMSSP"; content:"|00 00 00 00 00 00 00 00|"; distance:0; sid:2028004; rev:1; classtype:credential-theft; priority:1;)
-
 # WMI execution with NTLM authentication
 drop tcp any any -> any 135 (msg:"[ALERT] Pass-the-Hash - WMI with NTLM"; flow:to_server,established; content:"NTLMSSP"; content:"IWbemServices"; nocase; distance:0; sid:2028005; rev:1; classtype:credential-theft; priority:1;)
-
 # WinRM with NTLM (should use Kerberos in domain)
 drop tcp any any -> any 5985 (msg:"[ALERT] Pass-the-Hash - WinRM NTLM Auth"; flow:to_server,established; content:"NTLMSSP"; sid:2028006; rev:1; classtype:credential-theft; priority:1;)
-
 # RDP with NTLM authentication
 drop tcp any any -> any 3389 (msg:"[ALERT] Pass-the-Hash - RDP NTLM Auth"; flow:to_server,established; content:"NTLMSSP"; sid:2028007; rev:1; classtype:credential-theft; priority:1;)
-
-# ============================================
 # PASS-THE-TICKET (PtT) DETECTION
-# ============================================
-
 # Abnormal Kerberos ticket usage patterns
 drop tcp any any -> any 88 (msg:"[ALERT] Pass-the-Ticket - Rapid TGT Requests"; flow:to_server; content:"|a0|"; threshold:type threshold, track by_src, count 20, seconds 60; sid:2028010; rev:1; classtype:credential-theft; priority:1;)
-
 # Kerberos ticket from non-domain member
 drop tcp any any -> any 88 (msg:"[ALERT] Pass-the-Ticket - Suspicious Kerberos Source"; flow:to_server; content:"|a0|"; sid:2028011; rev:1; classtype:credential-theft; priority:1;)
-
 # Forged Kerberos ticket indicators (Golden/Silver Ticket)
 drop tcp any any -> any 88 (msg:"[ALERT] Pass-the-Ticket - Forged Ticket Indicator"; flow:to_server; content:"krbtgt"; nocase; content:"|a0|"; distance:0; sid:2028012; rev:1; classtype:credential-theft; priority:1;)
-
 # Multiple ticket requests from single source
 drop tcp any any -> any 88 (msg:"[ALERT] Pass-the-Ticket - Excessive TGS Requests"; flow:to_server; content:"|a1|"; threshold:type threshold, track by_src, count 30, seconds 120; sid:2028013; rev:1; classtype:credential-theft; priority:1;)
-
-# ============================================
 # OVERPASS-THE-HASH (Pass-the-Key)
-# ============================================
-
 # Kerberos AS-REQ with RC4 encryption (downgrade indicator)
 drop tcp any any -> any 88 (msg:"[ALERT] Overpass-the-Hash - RC4 Downgrade"; flow:to_server; content:"|a0|"; content:"|17|"; distance:0; sid:2028020; rev:1; classtype:credential-theft; priority:1;)
-
 # Multiple AS-REQ attempts (trying to obtain TGT with hash)
 drop tcp any any -> any 88 (msg:"[ALERT] Overpass-the-Hash - Multiple AS-REQ"; flow:to_server; content:"|a0|"; content:"|00 00 00 0a|"; distance:0; threshold:type threshold, track by_src, count 10, seconds 60; sid:2028021; rev:1; classtype:credential-theft; priority:1;)
-
 # Kerberos pre-authentication with NTLM hash
 drop tcp any any -> any 88 (msg:"[ALERT] Overpass-the-Hash - NTLM to Kerberos Conversion"; flow:to_server; content:"PA-ENC-TIMESTAMP"; content:"|17|"; distance:0; sid:2028022; rev:1; classtype:credential-theft; priority:1;)
-
-# ============================================
 # NTLM RELAY ATTACKS
-# ============================================
-
 # SMB relay attempt (connection from unexpected source)
 drop tcp any any -> any 445 (msg:"[ALERT] NTLM Relay - SMB Relay Attempt"; flow:to_server,established; content:"NTLMSSP"; content:"|03 00 00 00|"; distance:0; threshold:type threshold, track by_src, count 5, seconds 30; sid:2028030; rev:1; classtype:credential-theft; priority:1;)
-
 # NTLM authentication from multiple sources to same target (relay indicator)
 alert tcp any any -> any 445 (msg:"[ALERT] NTLM Relay - Multiple Sources to Target"; flow:to_server,established; content:"NTLMSSP"; threshold:type threshold, track by_dst, count 5, seconds 60; sid:2028031; rev:1; classtype:credential-theft; priority:2;)
-
 # SMB signing disabled (relay vulnerability)
 alert tcp any any -> any 445 (msg:"[ALERT] NTLM Relay - SMB Signing Not Required"; flow:to_server,established; content:"NTLMSSP"; content:"|00 00 00 00|"; offset:32; sid:2028032; rev:1; classtype:policy-violation; priority:2;)
-
 # HTTP to SMB relay
 drop tcp any any -> any 445 (msg:"[ALERT] NTLM Relay - HTTP to SMB"; flow:to_server,established; content:"NTLMSSP"; content:"Authorization:"; nocase; distance:0; sid:2028033; rev:1; classtype:credential-theft; priority:1;)
-
 # LDAP relay
 drop tcp any any -> any 389 (msg:"[ALERT] NTLM Relay - LDAP Relay Attack"; flow:to_server,established; content:"NTLMSSP"; sid:2028034; rev:1; classtype:credential-theft; priority:1;)
-
-# ============================================
 # RESPONDER / LLMNR POISONING
-# ============================================
-
 # LLMNR response from non-DNS server
-drop udp any any -> any 5355 (msg:"[ALERT] LLMNR Poisoning - Unauthorized Response"; flow:to_client; sid:2028040; rev:1; classtype:credential-theft; priority:1;)
-
 # NetBIOS Name Service poisoning
 drop udp any any -> any 137 (msg:"[ALERT] NBT-NS Poisoning - Unauthorized Response"; flow:to_client; sid:2028041; rev:1; classtype:credential-theft; priority:1;)
-
 # MDNS poisoning
 drop udp any any -> any 5353 (msg:"[ALERT] mDNS Poisoning - Unauthorized Response"; flow:to_client; sid:2028042; rev:1; classtype:credential-theft; priority:1;)
-
 # WPAD spoofing
 drop http any any -> any any (msg:"[ALERT] WPAD Spoofing - Fake Proxy Config"; flow:established; content:"wpad.dat"; nocase; http_uri; sid:2028043; rev:1; classtype:credential-theft; priority:1;)
-
 drop http any any -> any any (msg:"[ALERT] WPAD Spoofing - Proxy Authentication Request"; flow:established; content:"wpad"; nocase; content:"407"; sid:2028044; rev:1; classtype:credential-theft; priority:1;)
-
-# ============================================
 # NTLM DOWNGRADE ATTACKS
-# ============================================
-
 # NTLMv1 usage (should use NTLMv2)
 drop tcp any any -> any 445 (msg:"[ALERT] NTLM Downgrade - NTLMv1 Detected"; flow:to_server,established; content:"NTLMSSP"; content:"|01 00 00 00|"; distance:0; sid:2028050; rev:1; classtype:credential-theft; priority:1;)
-
 # LM hash usage (extremely weak)
 drop tcp any any -> any 445 (msg:"[ALERT] NTLM Downgrade - LM Hash Detected"; flow:to_server,established; content:"NTLMSSP"; content:"LM"; nocase; distance:0; sid:2028051; rev:1; classtype:credential-theft; priority:1;)
-
 # Extended Security disabled
 alert tcp any any -> any 445 (msg:"[ALERT] NTLM Downgrade - Extended Security Disabled"; flow:to_server,established; content:"|ff|SMB"; depth:5; content:"|00 00|"; offset:39; sid:2028052; rev:1; classtype:policy-violation; priority:2;)
-
-# ============================================
 # HASH CRACKING TOOLS
-# ============================================
-
 # Hashcat network traffic
 drop tcp any any -> any any (msg:"[ALERT] Hash Cracking - Hashcat Pattern"; flow:established; content:"hashcat"; nocase; sid:2028060; rev:1; classtype:credential-theft; priority:1;)
-
 # John the Ripper
 drop tcp any any -> any any (msg:"[ALERT] Hash Cracking - John the Ripper"; flow:established; content:"john"; nocase; content:"pot"; nocase; distance:0; sid:2028061; rev:1; classtype:credential-theft; priority:1;)
-
 # Hydra brute forcing
 drop tcp any any -> any [22,23,21,80,443,445,3389] (msg:"[ALERT] Hash Cracking - Hydra Brute Force Tool"; flow:to_server; threshold:type threshold, track by_src, count 50, seconds 60; sid:2028062; rev:1; classtype:credential-theft; priority:1;)
-
 # Medusa brute forcing
 drop tcp any any -> any any (msg:"[ALERT] Hash Cracking - Medusa Tool"; flow:established; content:"Medusa"; nocase; sid:2028063; rev:1; classtype:credential-theft; priority:1;)
-
-# ============================================
 # CREDENTIAL HARVESTING
-# ============================================
-
 # Mimikatz pass-the-hash module
 drop tcp any any -> any any (msg:"[ALERT] Pass-the-Hash - Mimikatz sekurlsa::pth"; flow:established; content:"sekurlsa::pth"; nocase; sid:2028070; rev:1; classtype:credential-theft; priority:1;)
-
 # Invoke-TheHash (PowerShell PtH tool)
 drop tcp any any -> any any (msg:"[ALERT] Pass-the-Hash - Invoke-TheHash"; flow:established; content:"Invoke-TheHash"; nocase; sid:2028071; rev:1; classtype:credential-theft; priority:1;)
-
 drop tcp any any -> any any (msg:"[ALERT] Pass-the-Hash - Invoke-SMBExec"; flow:established; content:"Invoke-SMBExec"; nocase; sid:2028072; rev:1; classtype:credential-theft; priority:1;)
-
 drop tcp any any -> any any (msg:"[ALERT] Pass-the-Hash - Invoke-WMIExec"; flow:established; content:"Invoke-WMIExec"; nocase; sid:2028073; rev:1; classtype:credential-theft; priority:1;)
-
 # Impacket suite (PtH tools)
 drop tcp any any -> any 445 (msg:"[ALERT] Pass-the-Hash - Impacket smbexec"; flow:to_server,established; content:"impacket"; nocase; sid:2028074; rev:1; classtype:credential-theft; priority:1;)
-
 drop tcp any any -> any 445 (msg:"[ALERT] Pass-the-Hash - Impacket wmiexec"; flow:to_server,established; content:"wmiexec"; nocase; sid:2028075; rev:1; classtype:credential-theft; priority:1;)
-
 drop tcp any any -> any 445 (msg:"[ALERT] Pass-the-Hash - Impacket psexec"; flow:to_server,established; content:"psexec"; nocase; content:"impacket"; nocase; distance:0; sid:2028076; rev:1; classtype:credential-theft; priority:1;)
-
 # CrackMapExec with hash
 drop tcp any any -> any 445 (msg:"[ALERT] Pass-the-Hash - CrackMapExec Hash Auth"; flow:to_server,established; content:"NTLMSSP"; content:"CME"; nocase; distance:0; sid:2028077; rev:1; classtype:credential-theft; priority:1;)
-
 # Metasploit PsExec with hash
 drop tcp any any -> any 445 (msg:"[ALERT] Pass-the-Hash - Metasploit PsExec Hash"; flow:to_server,established; content:"Metasploit"; nocase; content:"NTLMSSP"; distance:0; sid:2028078; rev:1; classtype:credential-theft; priority:1;)
-
-# ============================================
 # NTLM RELAY DETECTION
-# ============================================
-
 # Responder tool detection
 drop udp any any -> any [137,138,5355,5353] (msg:"[ALERT] NTLM Relay - Responder Tool Activity"; sid:2028080; rev:1; classtype:credential-theft; priority:1;)
-
 # Inveigh (PowerShell Responder)
 drop tcp any any -> any any (msg:"[ALERT] NTLM Relay - Inveigh Tool"; flow:established; content:"Inveigh"; nocase; sid:2028081; rev:1; classtype:credential-theft; priority:1;)
-
 # SMB relay to domain controller
 drop tcp any any -> [172.16.201.136,172.16.201.153,172.16.201.156,172.16.201.158,172.16.201.159,172.16.201.163,172.16.201.164] 445 (msg:"[ALERT] NTLM Relay - SMB to Domain Controller"; flow:to_server,established; content:"NTLMSSP"; threshold:type threshold, track by_src, count 3, seconds 30; sid:2028082; rev:1; classtype:credential-theft; priority:1;)
-
 # ntlmrelayx tool
 drop tcp any any -> any any (msg:"[ALERT] NTLM Relay - ntlmrelayx Tool"; flow:established; content:"ntlmrelayx"; nocase; sid:2028083; rev:1; classtype:credential-theft; priority:1;)
-
 # MultiRelay tool
 drop tcp any any -> any 445 (msg:"[ALERT] NTLM Relay - MultiRelay Tool"; flow:to_server,established; content:"MultiRelay"; nocase; sid:2028084; rev:1; classtype:credential-theft; priority:1;)
-
 # SMB relay with authentication from different source
 alert tcp any any -> any 445 (msg:"[ALERT] NTLM Relay - Cross-Host Authentication Pattern"; flow:to_server,established; content:"NTLMSSP"; content:"|03 00 00 00|"; distance:0; sid:2028085; rev:1; classtype:credential-theft; priority:2;)
-
-# ============================================
 # KERBEROASTING DETECTION (Hash Extraction)
-# ============================================
-
 # Excessive SPN requests (Kerberoasting)
 drop tcp any any -> any 88 (msg:"[ALERT] Kerberoasting - Excessive TGS-REQ"; flow:to_server; content:"|a1|"; threshold:type threshold, track by_src, count 15, seconds 60; sid:2028090; rev:1; classtype:credential-theft; priority:1;)
-
 # TGS-REQ with RC4 encryption (Kerberoasting)
 drop tcp any any -> any 88 (msg:"[ALERT] Kerberoasting - RC4 TGS Request"; flow:to_server; content:"|a1|"; content:"|17|"; distance:0; sid:2028091; rev:1; classtype:credential-theft; priority:1;)
-
 # Rubeus Kerberoasting
 drop tcp any any -> any any (msg:"[ALERT] Kerberoasting - Rubeus Tool"; flow:established; content:"Rubeus"; nocase; content:"kerberoast"; nocase; distance:0; sid:2028092; rev:1; classtype:credential-theft; priority:1;)
-
 # Invoke-Kerberoast
 drop tcp any any -> any any (msg:"[ALERT] Kerberoasting - Invoke-Kerberoast"; flow:established; content:"Invoke-Kerberoast"; nocase; sid:2028093; rev:1; classtype:credential-theft; priority:1;)
-
 # GetUserSPNs.py (Impacket)
 drop tcp any any -> any 389 (msg:"[ALERT] Kerberoasting - GetUserSPNs Tool"; flow:to_server,established; content:"servicePrincipalName"; nocase; threshold:type threshold, track by_src, count 10, seconds 60; sid:2028094; rev:1; classtype:credential-theft; priority:1;)
-
-# ============================================
 # AS-REP ROASTING (Hash Extraction)
-# ============================================
-
 # AS-REP without pre-authentication (AS-REP Roasting)
 drop tcp any any -> any 88 (msg:"[ALERT] AS-REP Roasting - No Pre-Auth Required"; flow:to_server; content:"|a0|"; content:"|00 00 00 00|"; offset:10; sid:2028100; rev:1; classtype:credential-theft; priority:1;)
-
 # Multiple AS-REQ for users without pre-auth
 drop tcp any any -> any 88 (msg:"[ALERT] AS-REP Roasting - Multiple Target Accounts"; flow:to_server; content:"|a0|"; threshold:type threshold, track by_src, count 20, seconds 120; sid:2028101; rev:1; classtype:credential-theft; priority:1;)
-
 # Rubeus AS-REP Roasting
 drop tcp any any -> any any (msg:"[ALERT] AS-REP Roasting - Rubeus asreproast"; flow:established; content:"Rubeus"; nocase; content:"asreproast"; nocase; distance:0; sid:2028102; rev:1; classtype:credential-theft; priority:1;)
-
 # GetNPUsers.py (Impacket)
 drop tcp any any -> any 88 (msg:"[ALERT] AS-REP Roasting - GetNPUsers Tool"; flow:to_server; threshold:type threshold, track by_src, count 10, seconds 60; sid:2028103; rev:1; classtype:credential-theft; priority:1;)
-
-# ============================================
 # NTLM COERCION ATTACKS
-# ============================================
-
 # PetitPotam (MS-EFSRPC abuse)
 drop tcp any any -> any 445 (msg:"[ALERT] NTLM Coercion - PetitPotam Attack"; flow:to_server,established; content:"\\pipe\\lsarpc"; nocase; content:"EfsRpcOpenFileRaw"; nocase; distance:0; sid:2028110; rev:1; classtype:credential-theft; priority:1;)
-
 drop tcp any any -> any 445 (msg:"[ALERT] NTLM Coercion - EfsRpc Abuse"; flow:to_server,established; content:"efsrpc"; nocase; sid:2028111; rev:1; classtype:credential-theft; priority:1;)
-
 # PrinterBug (MS-RPRN abuse)
 drop tcp any any -> any 445 (msg:"[ALERT] NTLM Coercion - PrinterBug/SpoolSample"; flow:to_server,established; content:"\\pipe\\spoolss"; nocase; sid:2028112; rev:1; classtype:credential-theft; priority:1;)
-
 drop tcp any any -> any 445 (msg:"[ALERT] NTLM Coercion - RpcRemoteFindFirstPrinterChangeNotification"; flow:to_server,established; content:"RpcRemoteFindFirstPrinterChangeNotification"; nocase; sid:2028113; rev:1; classtype:credential-theft; priority:1;)
-
 # DFSCoerce
 drop tcp any any -> any 445 (msg:"[ALERT] NTLM Coercion - DFSCoerce Attack"; flow:to_server,established; content:"\\pipe\\netdfs"; nocase; sid:2028114; rev:1; classtype:credential-theft; priority:1;)
-
-# ============================================
 # LSASS CREDENTIAL DUMPING (Hash Extraction)
-# ============================================
-
 # Remote LSASS dump via SMB
 drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - Remote LSASS Dump"; flow:to_server,established; content:"lsass.dmp"; nocase; sid:2028120; rev:1; classtype:credential-theft; priority:1;)
-
 drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - lsass Memory Access"; flow:to_server,established; content:"lsass"; nocase; content:"minidump"; nocase; distance:0; sid:2028121; rev:1; classtype:credential-theft; priority:1;)
-
 # Comsvcs.dll MiniDump
 drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - Comsvcs.dll MiniDump"; flow:to_server,established; content:"comsvcs.dll"; nocase; content:"MiniDump"; nocase; distance:0; sid:2028122; rev:1; classtype:credential-theft; priority:1;)
-
 # Task Manager memory dump
 drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - Task Manager Dump"; flow:to_server,established; content:"lsass"; nocase; content:".dmp"; nocase; distance:0; sid:2028123; rev:1; classtype:credential-theft; priority:1;)
-
-# ============================================
 # SAM/SYSTEM REGISTRY HIVE EXTRACTION
-# ============================================
-
 # Remote registry SAM access
 drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - SAM Registry Hive Access"; flow:to_server,established; content:"\\SAM"; nocase; content:"\\Domains\\Account"; nocase; distance:0; sid:2028130; rev:1; classtype:credential-theft; priority:1;)
-
 # SYSTEM registry hive
 drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - SYSTEM Registry Hive"; flow:to_server,established; content:"\\SYSTEM"; nocase; content:"\\CurrentControlSet"; nocase; distance:0; sid:2028131; rev:1; classtype:credential-theft; priority:1;)
-
 # reg save command
-drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - reg save SAM"; flow:to_server,established; content:"reg"; nocase; content:"save"; nocase; distance:0; content:"SAM"; nocase; distance:0; sid:2028132; rev:1; classtype:credential-theft; priority:1;)
-
+drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - reg save SAM"; flow:to_server,established; content:"reg"; nocase; content:"save"; nocase; distance:0; content:"SAM"; nocase; distance:0; sid:2028132; rev:1; classtype:credential-theft; priority:1;
 drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - reg save SYSTEM"; flow:to_server,established; content:"reg"; nocase; content:"save"; nocase; distance:0; content:"SYSTEM"; nocase; distance:0; sid:2028133; rev:1; classtype:credential-theft; priority:1;)
-
-# ============================================
 # NTDS.DIT EXTRACTION (Domain Hashes)
-# ============================================
-
 # NTDS.dit file access
 drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - NTDS.dit Access"; flow:to_server,established; content:"NTDS.dit"; nocase; sid:2028140; rev:1; classtype:credential-theft; priority:1;)
-
 # VSS copy of NTDS.dit
 drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - VSS NTDS Copy"; flow:to_server,established; content:"GLOBALROOT"; nocase; content:"NTDS.dit"; nocase; distance:0; sid:2028141; rev:1; classtype:credential-theft; priority:1;)
-
 # ntdsutil usage
 drop tcp any any -> any any (msg:"[ALERT] Hash Extraction - ntdsutil Tool"; flow:established; content:"ntdsutil"; nocase; sid:2028142; rev:1; classtype:credential-theft; priority:1;)
-
 # secretsdump.py (Impacket)
 drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - secretsdump Tool"; flow:to_server,established; content:"secretsdump"; nocase; sid:2028143; rev:1; classtype:credential-theft; priority:1;)
-
-# ============================================
 # CREDENTIAL ACCESS VIA NETWORK PROTOCOLS
-# ============================================
-
 # LDAP simple bind with credentials
 alert tcp any any -> any 389 (msg:"[ALERT] Hash Capture - LDAP Simple Bind"; flow:to_server,established; content:"simple"; nocase; threshold:type threshold, track by_src, count 10, seconds 60; sid:2028150; rev:1; classtype:policy-violation; priority:3;)
-
 # HTTP Basic authentication (base64 credentials)
 alert http any any -> any any (msg:"[ALERT] Hash Capture - HTTP Basic Auth"; flow:established,to_server; content:"Authorization:"; nocase; content:"Basic"; nocase; distance:0; sid:2028151; rev:1; classtype:policy-violation; priority:3;)
-
 # FTP clear text authentication
 alert tcp any any -> any 21 (msg:"[ALERT] Hash Capture - FTP Cleartext Credentials"; flow:to_server; content:"PASS"; sid:2028152; rev:1; classtype:policy-violation; priority:3;)
-
-# ============================================
 # MITM CREDENTIAL CAPTURE
-# ============================================
-
 # ARP spoofing (preparation for credential capture)
-
 # DHCPv6 spoofing (credential capture)
 drop udp any any -> any 547 (msg:"[ALERT] Credential Capture - DHCPv6 Spoofing"; sid:2028161; rev:1; classtype:credential-theft; priority:1;)
-
-# ============================================
 # MITRE ATT&CK MAPPINGS
-# ============================================
-
 # T1550.002 - Pass the Hash
 drop tcp any any -> any 445 (msg:"[ALERT] MITRE T1550.002 - Pass the Hash"; flow:to_server,established; content:"NTLMSSP"; threshold:type both, track by_src, count 5, seconds 60; sid:2028170; rev:1; classtype:credential-theft; priority:1; reference:url,attack.mitre.org/techniques/T1550/002;)
-
 # T1550.003 - Pass the Ticket
 drop tcp any any -> any 88 (msg:"[ALERT] MITRE T1550.003 - Pass the Ticket"; flow:to_server; content:"|a0|"; threshold:type both, track by_src, count 10, seconds 60; sid:2028171; rev:1; classtype:credential-theft; priority:1; reference:url,attack.mitre.org/techniques/T1550/003;)
-
 # T1557.001 - LLMNR/NBT-NS Poisoning
 drop udp any any -> any [137,5355] (msg:"[ALERT] MITRE T1557.001 - LLMNR/NBT-NS Poisoning"; flow:to_client; sid:2028172; rev:1; classtype:credential-theft; priority:1; reference:url,attack.mitre.org/techniques/T1557/001;)
-
 # T1187 - Forced Authentication
 drop tcp any any -> any 445 (msg:"[ALERT] MITRE T1187 - Forced Authentication"; flow:to_server,established; content:"\\\\"; sid:2028173; rev:1; classtype:credential-theft; priority:1; reference:url,attack.mitre.org/techniques/T1187;)
