@@ -1774,3 +1774,168 @@ alert tcp any any -> any any (msg:"[ALERT] Reconnaissance - Multiple Service Acc
 
 # Connections to multiple filtered ports (backdoor hunting)
 alert tcp any any -> any [3333,4444,5555,9999] (msg:"[ALERT] Backdoor Hunting - Filtered Port Access"; flow:to_server; threshold:type threshold, track by_src, count 4, seconds 30; sid:2018171; rev:1; classtype:attempted-recon; priority:2;)
+
+
+
+# ============================================
+# TLS/ENCRYPTED TRAFFIC ANOMALIES
+# SID Range: 2019xxx
+# ============================================
+
+# Suspicious TLS to non-standard ports
+alert tls $HOME_NET any -> !$HOME_NET ![443,8443,9443] (msg:"[ALERT] TLS to Non-Standard Port"; flow:to_server; sid:2019001; rev:1; classtype:policy-violation; priority:2;)
+
+# TLS with self-signed cert to external
+drop tls $HOME_NET any -> !$HOME_NET any (msg:"[ALERT] TLS - Self-Signed Cert to External"; tls.cert_subject; pcre:"/CN=(?!.*\.(com|org|net))/"; sid:2019002; rev:1; classtype:trojan-activity; priority:1;)
+
+# Excessive TLS connections
+alert tls any any -> any any (msg:"[ALERT] Excessive TLS Sessions"; flow:to_server; threshold:type threshold, track by_src, count 100, seconds 60; sid:2019003; rev:1; classtype:trojan-activity; priority:2;)
+
+# TLS beaconing pattern
+alert tls $HOME_NET any -> !$HOME_NET any (msg:"[ALERT] Possible C2 Beaconing over TLS"; flow:established; threshold:type both, track by_src, count 10, seconds 600; sid:2019004; rev:1; classtype:trojan-activity; priority:2;)
+
+# Suspicious SNI (Server Name Indication)
+drop tls any any -> any 443 (msg:"[ALERT] TLS - Suspicious SNI (IP Address)"; tls.sni; pcre:"/^\d+\.\d+\.\d+\.\d+$/"; sid:2019005; rev:1; classtype:trojan-activity; priority:1;)
+
+# DoH (DNS over HTTPS) to non-standard servers
+alert tls $HOME_NET any -> !$HOME_NET 443 (msg:"[ALERT] Potential DNS over HTTPS"; tls.sni; pcre:"/dns|doh/i"; sid:2019006; rev:1; classtype:policy-violation; priority:2;)
+
+
+# ============================================
+# LOLBIN (Living Off The Land Binaries)
+# SID Range: 2020xxx
+# ============================================
+
+# Certutil abuse
+drop tcp any any -> any any (msg:"[ALERT] LOLBin - certutil Download"; flow:established; content:"certutil"; nocase; content:"-urlcache"; nocase; distance:0; sid:2020001; rev:1; classtype:trojan-activity; priority:1;)
+
+# MSHTA abuse
+drop tcp any any -> any any (msg:"[ALERT] LOLBin - mshta Execution"; flow:established; content:"mshta"; nocase; sid:2020002; rev:1; classtype:trojan-activity; priority:1;)
+
+# MSBuild abuse
+drop tcp any any -> any 445 (msg:"[ALERT] LOLBin - MSBuild Remote Execution"; flow:to_server,established; content:"msbuild.exe"; nocase; sid:2020003; rev:1; classtype:trojan-activity; priority:1;)
+
+# BITS transfer
+drop tcp any any -> any any (msg:"[ALERT] LOLBin - BITSAdmin Download"; flow:established; content:"bitsadmin"; nocase; content:"/transfer"; nocase; distance:0; sid:2020004; rev:1; classtype:trojan-activity; priority:1;)
+
+# Regsvr32 scriptlet
+drop http any any -> any any (msg:"[ALERT] LOLBin - Regsvr32 Scriptlet"; flow:established; content:"regsvr32"; nocase; content:".sct"; nocase; distance:0; sid:2020005; rev:1; classtype:trojan-activity; priority:1;)
+
+# Rundll32 abuse
+drop tcp any any -> any any (msg:"[ALERT] LOLBin - Rundll32 JavaScript"; flow:established; content:"rundll32"; nocase; content:"javascript:"; nocase; distance:0; sid:2020006; rev:1; classtype:trojan-activity; priority:1;)
+
+# WMIC XSL script execution
+drop tcp any any -> any 135 (msg:"[ALERT] LOLBin - WMIC XSL Execution"; flow:to_server,established; content:"wmic"; nocase; content:"/format:"; nocase; distance:0; sid:2020007; rev:1; classtype:trojan-activity; priority:1;)
+
+# Forfiles abuse
+drop tcp any any -> any any (msg:"[ALERT] LOLBin - Forfiles Command Execution"; flow:established; content:"forfiles"; nocase; content:"/c"; nocase; distance:0; sid:2020008; rev:1; classtype:trojan-activity; priority:1;)
+
+# PsExec alternatives (PAExec, RemCom)
+drop tcp any any -> any 445 (msg:"[ALERT] LOLBin - PAExec Execution"; flow:to_server,established; content:"PAExec"; nocase; sid:2020009; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any 445 (msg:"[ALERT] LOLBin - RemCom Execution"; flow:to_server,established; content:"RemCom"; nocase; sid:2020010; rev:1; classtype:trojan-activity; priority:1;)
+
+
+# ============================================
+# SLOW AND LOW DETECTION
+# SID Range: 2021xxx
+# ============================================
+
+# Long-term authentication attempts (across hours)
+alert tcp any any -> any [22,445,3389,5985] (msg:"[ALERT] Slow Brute Force - Long Duration"; flow:to_server; threshold:type both, track by_src, count 20, seconds 3600; sid:2021001; rev:1; classtype:attempted-user; priority:2;)
+
+# Rare but repeated connections
+alert tcp any any -> any any (msg:"[ALERT] Slow Reconnaissance - Periodic Access"; flow:to_server; threshold:type both, track by_src, count 10, seconds 7200; sid:2021002; rev:1; classtype:attempted-recon; priority:3;)
+
+# Small but frequent data transfers (cumulative exfiltration)
+alert tcp $HOME_NET any -> !$HOME_NET any (msg:"[ALERT] Slow Data Exfiltration - Small Chunks"; flow:to_server; dsize:>100000; threshold:type threshold, track by_src, count 50, seconds 3600; sid:2021003; rev:1; classtype:policy-violation; priority:2;)
+
+
+# ============================================
+# PROTOCOL ABUSE DETECTION
+# SID Range: 2022xxx
+# ============================================
+
+# ICMP with large payloads (tunneling)
+drop icmp any any -> any any (msg:"[ALERT] ICMP - Large Payload Tunneling"; dsize:>100; sid:2022001; rev:1; classtype:policy-violation; priority:1;)
+
+# ICMP excessive traffic
+alert icmp any any -> any any (msg:"[ALERT] ICMP - Excessive Traffic (Possible Tunnel)"; threshold:type threshold, track by_src, count 1000, seconds 60; sid:2022002; rev:1; classtype:policy-violation; priority:2;)
+
+# SMB from unusual sources with valid auth
+alert tcp any any -> any 445 (msg:"[ALERT] SMB - Valid Auth from Workstation"; flow:to_server,established; content:"|ff|SMB"; depth:5; sid:2022010; rev:1; classtype:policy-violation; priority:3;)
+
+# Multiple SMB connections to different hosts (lateral movement)
+alert tcp any any -> any 445 (msg:"[ALERT] SMB - Multiple Target Connections"; flow:to_server; threshold:type threshold, track by_src, count 10, seconds 300; sid:2022011; rev:1; classtype:trojan-activity; priority:2;)
+
+# RDP with keyboard/mouse activity patterns (impossible to detect at network level)
+# Can only monitor connection frequency
+alert tcp any any -> any 3389 (msg:"[ALERT] RDP - Multiple Session Attempts"; flow:to_server; threshold:type threshold, track by_src, count 5, seconds 1800; sid:2022020; rev:1; classtype:policy-violation; priority:3;)
+
+# ============================================
+# FILELESS ATTACK DETECTION
+# SID Range: 2023xxx
+# ============================================
+
+# PowerShell download cradles
+drop tcp any any -> any any (msg:"[ALERT] Fileless - IEX WebClient Download"; flow:established; content:"IEX"; nocase; content:"WebClient"; nocase; distance:0; content:"DownloadString"; nocase; distance:0; sid:2023001; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any any (msg:"[ALERT] Fileless - IWR Download and Execute"; flow:established; content:"Invoke-WebRequest"; nocase; content:"IEX"; nocase; distance:0; sid:2023002; rev:1; classtype:trojan-activity; priority:1;)
+
+# Reflective loading
+drop tcp any any -> any any (msg:"[ALERT] Fileless - Reflective PE Injection"; flow:established; content:"Invoke-ReflectivePEInjection"; nocase; sid:2023003; rev:1; classtype:trojan-activity; priority:1;)
+
+drop tcp any any -> any any (msg:"[ALERT] Fileless - Reflection.Assembly Load"; flow:established; content:"Reflection.Assembly"; nocase; content:"Load"; nocase; distance:0; sid:2023004; rev:1; classtype:trojan-activity; priority:1;)
+
+# In-memory .NET execution
+drop tcp any any -> any any (msg:"[ALERT] Fileless - .NET In-Memory Load"; flow:established; content:"[Reflection.Assembly]::Load"; nocase; sid:2023005; rev:1; classtype:trojan-activity; priority:1;)
+
+# Process hollowing indicators
+drop tcp any any -> any any (msg:"[ALERT] Fileless - Process Hollowing"; flow:established; content:"NtUnmapViewOfSection"; nocase; sid:2023006; rev:1; classtype:trojan-activity; priority:1;)
+
+# Can only detect anomalies
+alert tls $HOME_NET any -> !$HOME_NET 443 (msg:"[ALERT] Excessive HTTPS to CDN"; tls.sni; pcre:"/cloudfront\.net|azurewebsites\.net|appspot\.com/"; threshold:type threshold, track by_src, count 100, seconds 300; sid:2019010; rev:1; classtype:policy-violation; priority:3;)
+
+# ============================================
+# CREDENTIAL REUSE DETECTION
+# SID Range: 2024xxx
+# ============================================
+
+# Same account accessing many systems
+alert tcp any any -> any [445,3389,5985] (msg:"[ALERT] Credential Reuse - Multiple Targets"; flow:to_server; threshold:type threshold, track by_src, count 15, seconds 300; sid:2024001; rev:1; classtype:policy-violation; priority:2;)
+
+# Authentication from unusual source
+alert tcp any any -> any [445,3389,5985,22] (msg:"[ALERT] Authentication from Workstation"; flow:to_server,established; sid:2024002; rev:1; classtype:policy-violation; priority:3;)
+
+# Off-hours authentication
+alert tcp any any -> any [445,3389,5985] (msg:"[ALERT] Off-Hours Authentication"; flow:to_server; sid:2024003; rev:1; classtype:policy-violation; priority:3;)
+
+# Can only detect tools or unusual file transfers
+alert tcp any any -> any any (msg:"[ALERT] Steganography - Steghide Pattern"; flow:established; content:"steghide"; nocase; sid:2025001; rev:1; classtype:policy-violation; priority:3;)
+
+alert tcp $HOME_NET any -> !$HOME_NET any (msg:"[ALERT] Large Image Upload (Possible Stego)"; flow:to_server; content:"Content-Type:"; nocase; content:"image/"; nocase; distance:0; dsize:>5000000; sid:2025002; rev:1; classtype:policy-violation; priority:3;)
+
+# ============================================
+# IPv6 ATTACK DETECTION
+# SID Range: 2026xxx
+# ============================================
+
+# Disable IPv6 tunneling protocols
+drop ip any any -> any any (msg:"[ALERT] IPv6 - 6to4 Tunnel"; ip_proto:41; sid:2026001; rev:1; classtype:policy-violation; priority:1;)
+
+# Teredo tunneling
+drop udp any any -> any 3544 (msg:"[ALERT] IPv6 - Teredo Tunnel"; sid:2026002; rev:1; classtype:policy-violation; priority:1;)
+
+# IPv6 Router Advertisement spoofing
+drop ipv6 any any -> any any (msg:"[ALERT] IPv6 - Rogue Router Advertisement"; content:"|86 00|"; depth:2; sid:2026003; rev:1; classtype:network-scan; priority:1;)
+
+# IPv6 DHCPv6 spoofing
+drop udp any any -> any 546 (msg:"[ALERT] IPv6 - Rogue DHCPv6 Server"; sid:2026004; rev:1; classtype:network-scan; priority:1;)
+
+# Can only detect anomalies
+alert tcp any any -> any any (msg:"[ALERT] Anomaly - Unusual Protocol on Standard Port"; flow:established; dsize:>1000; sid:2027001; rev:1; classtype:unknown; priority:3;)
+
+# Network beaconing (any protocol)
+alert tcp $HOME_NET any -> !$HOME_NET any (msg:"[ALERT] Network Beaconing Detected"; flow:established; threshold:type both, track by_src, count 20, seconds 600; sid:2027002; rev:1; classtype:trojan-activity; priority:2;)
+
+
