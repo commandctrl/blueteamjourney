@@ -1140,11 +1140,11 @@ drop udp any any -> any [137,5355] (msg:"[ALERT] MITRE T1557.001 - LLMNR/NBT-NS 
 # T1187 - Forced Authentication
 drop tcp any any -> any 445 (msg:"[ALERT] MITRE T1187 - Forced Authentication"; flow:to_server,established; content:"\\\\"; sid:2028173; rev:1; classtype:credential-theft; priority:1; reference:url,attack.mitre.org/techniques/T1187;)
 # docker
-drop tcp !$HOME_NET any -> any 2375 (msg:"[BLOCKED] Docker - External API"; flow:to_server; sid:2032001; rev:2; classtype:attempted-admin; priority:1;)
-drop tcp !$HOME_NET any -> any 2376 (msg:"[BLOCKED] Docker - External TLS API"; flow:to_server; sid:2032003; rev:2; classtype:attempted-admin; priority:1;)
+drop tcp !$HOME_NET any -> any 2375 (msg:"[ALERT] Docker - External API"; flow:to_server; sid:2032001; rev:2; classtype:attempted-admin; priority:1;)
+drop tcp !$HOME_NET any -> any 2376 (msg:"[ALERT] Docker - External TLS API"; flow:to_server; sid:2032003; rev:2; classtype:attempted-admin; priority:1;)
 alert http any any -> any [2375,2376] (msg:"[ALERT] Docker - Privileged Container"; flow:established,to_server; content:"Privileged"; nocase; sid:2032008; rev:2; classtype:policy-violation; priority:2;)
-drop http any any -> any [2375,2376] (msg:"[BLOCKED] Docker - Excessive API Calls"; flow:established,to_server; content:"GET"; http_method; threshold:type threshold, track by_src, count 50, seconds 60; sid:2032010; rev:2; classtype:attempted-recon; priority:1;)
-drop tcp !$HOME_NET any -> any 8086 (msg:"[BLOCKED] InfluxDB - External Access"; flow:to_server; sid:2032060; rev:1; classtype:attempted-recon; priority:1;)
-drop tcp !$HOME_NET any -> any 8888 (msg:"[BLOCKED] Docker 8888 - External Access"; flow:to_server; sid:2032062; rev:1; classtype:attempted-recon; priority:1;)
+drop http any any -> any [2375,2376] (msg:"[ALERT] Docker - Excessive API Calls"; flow:established,to_server; content:"GET"; http_method; threshold:type threshold, track by_src, count 50, seconds 60; sid:2032010; rev:2; classtype:attempted-recon; priority:1;)
+drop tcp !$HOME_NET any -> any 8086 (msg:"[ALERT] InfluxDB - External Access"; flow:to_server; sid:2032060; rev:1; classtype:attempted-recon; priority:1;)
+drop tcp !$HOME_NET any -> any 8888 (msg:"[ALERT] Docker 8888 - External Access"; flow:to_server; sid:2032062; rev:1; classtype:attempted-recon; priority:1;)
 alert tcp any any -> any any (msg:"[ALERT] Docker - Socket Access"; flow:established; content:"/var/run/docker.sock"; sid:2032022; rev:2; classtype:policy-violation; priority:2;)
-drop tcp any any -> any any (msg:"[BLOCKED] Docker - deepce Tool"; flow:established; content:"deepce"; nocase; sid:2032090; rev:1; classtype:trojan-activity; priority:1;)
+drop tcp any any -> any any (msg:"[ALERT] Docker - deepce Tool"; flow:established; content:"deepce"; nocase; sid:2032090; rev:1; classtype:trojan-activity; priority:1;)
