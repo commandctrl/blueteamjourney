@@ -1,0 +1,74 @@
+---
+- name: Windows Comprehensive Hardening
+  hosts: windows
+  gather_facts: no
+  
+  tasks:
+    - name: Disable SMBv1
+      win_shell: Disable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol -NoRestart
+      ignore_errors: yes
+    
+    - name: Enable SMB Signing
+      win_regedit:
+        path: HKLM:\System\CurrentControlSet\Services\LanmanServer\Parameters
+        name: RequireSecuritySignature
+        data: 1
+        type: dword
+    
+    - name: Disable LLMNR
+      win_regedit:
+        path: HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient
+        name: EnableMulticast
+        data: 0
+        type: dword
+    
+    - name: Enable PowerShell Logging
+      win_regedit:
+        path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging
+        name: EnableScriptBlockLogging
+        data: 1
+        type: dword
+    
+    - name: Disable Print Spooler
+      win_service:
+        name: Spooler
+        state: stopped
+        start_mode: disabled
+      ignore_errors: yes
+    
+    - name: Enable Windows Defender Real-time
+      win_shell: Set-MpPreference -DisableRealtimeMonitoring $false
+    
+    - name: Update Defender Signatures
+      win_shell: Update-MpSignature
+    
+    - name: Enable Windows Firewall
+      win_shell: Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True
+    
+    - name: Enable Command Line Auditing
+      win_regedit:
+        path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit
+        name: ProcessCreationIncludeCmdLine_Enabled
+        data: 1
+        type: dword
+    
+    - name: Restrict NTLM
+      win_regedit:
+        path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+        name: LmCompatibilityLevel
+        data: 5
+        type: dword
+    
+    - name: Enable NLA for RDP
+      win_regedit:
+        path: HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp
+        name: UserAuthentication
+        data: 1
+        type: dword
+    
+    - name: Disable WDigest credential caching
+      win_regedit:
+        path: HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest
+        name: UseLogonCredential
+        data: 0
+        type: dword
