@@ -1,0 +1,414 @@
+---
+- name: Linux Security Hardening
+  hosts: all
+  become: yes
+  
+  vars:
+    allowed_ssh_users: ["ubuntu", "admin", "blueteam"]
+    ssh_port: 22
+    
+  tasks:
+    # ============================================
+    # 1. SYSTEM UPDATES
+    # ============================================
+    
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+    
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+        autoremove: yes
+        autoclean: yes
+    
+    # ============================================
+    # 2. INSTALL SECURITY TOOLS
+    # ============================================
+    
+    - name: Install security packages
+      apt:
+        name:
+          - fail2ban
+          - auditd
+          - aide
+          - ufw
+          - apparmor
+          - apparmor-utils
+          - rkhunter
+          - chkrootkit
+          - unattended-upgrades
+        state: present
+    
+    # ============================================
+    # 3. SSH HARDENING
+    # ============================================
+    
+    - name: Backup SSH config
+      copy:
+        src: /etc/ssh/sshd_config
+        dest: /etc/ssh/sshd_config.backup
+        remote_src: yes
+    
+    - name: Disable root SSH login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: 'PermitRootLogin no'
+    
+    - name: Disable password authentication (use keys only)
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+    
+    - name: Disable empty passwords
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitEmptyPasswords'
+        line: 'PermitEmptyPasswords no'
+    
+    - name: Use SSH Protocol 2 only
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^Protocol'
+        line: 'Protocol 2'
+    
+    - name: Set SSH max auth tries
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^MaxAuthTries'
+        line: 'MaxAuthTries 3'
+    
+    - name: Disable X11 forwarding
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^X11Forwarding'
+        line: 'X11Forwarding no'
+    
+    - name: Set SSH login grace time
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^LoginGraceTime'
+        line: 'LoginGraceTime 30'
+    
+    - name: Restart SSH service
+      service:
+        name: sshd
+        state: restarted
+    
+    # ============================================
+    # 4. FIREWALL CONFIGURATION
+    # ============================================
+    
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+    
+    - name: Allow SSH
+      ufw:
+        rule: allow
+        port: "{{ ssh_port }}"
+        proto: tcp
+    
+    - name: Allow HTTP (if web server)
+      ufw:
+        rule: allow
+        port: 80
+        proto: tcp
+      when: "'webservers' in group_names"
+    
+    - name: Allow HTTPS (if web server)
+      ufw:
+        rule: allow
+        port: 443
+        proto: tcp
+      when: "'webservers' in group_names"
+    
+    - name: Set UFW logging
+      ufw:
+        logging: 'on'
+    
+    # ============================================
+    # 5. FAIL2BAN CONFIGURATION
+    # ============================================
+    
+    - name: Configure fail2ban for SSH
+      copy:
+        content: |
+          [sshd]
+          enabled = true
+          port = ssh
+          filter = sshd
+          logpath = /var/log/auth.log
+          maxretry = 3
+          bantime = 3600
+          findtime = 600
+        dest: /etc/fail2ban/jail.d/sshd.local
+    
+    - name: Start and enable fail2ban
+      service:
+        name: fail2ban
+        state: started
+        enabled: yes
+    
+    # ============================================
+    # 6. AUDITD CONFIGURATION
+    # ============================================
+    
+    - name: Configure auditd rules
+      copy:
+        content: |
+          # Audit sensitive files
+          -w /etc/passwd -p wa -k passwd_changes
+          -w /etc/shadow -p wa -k shadow_changes
+          -w /etc/group -p wa -k group_changes
+          -w /etc/sudoers -p wa -k sudoers_changes
+          -w /etc/ssh/sshd_config -p wa -k sshd_config_changes
+          
+          # Audit authentication
+          -w /var/log/auth.log -p wa -k auth_log_changes
+          -w /var/log/faillog -p wa -k login_failures
+          -w /var/log/lastlog -p wa -k last_login
+          
+          # Audit privilege escalation
+          -w /usr/bin/sudo -p x -k sudo_execution
+          -w /usr/bin/su -p x -k su_execution
+          
+          # Audit network configuration
+          -w /etc/network/ -p wa -k network_changes
+          -w /etc/hosts -p wa -k hosts_changes
+          -w /etc/resolv.conf -p wa -k resolv_changes
+          
+          # Audit cron jobs
+          -w /etc/cron.allow -p wa -k cron_changes
+          -w /etc/cron.deny -p wa -k cron_changes
+          -w /etc/cron.d/ -p wa -k cron_changes
+          -w /etc/cron.daily/ -p wa -k cron_changes
+          -w /etc/cron.hourly/ -p wa -k cron_changes
+          -w /etc/cron.monthly/ -p wa -k cron_changes
+          -w /etc/cron.weekly/ -p wa -k cron_changes
+          -w /etc/crontab -p wa -k cron_changes
+          -w /var/spool/cron/ -p wa -k cron_changes
+          
+          # Audit kernel modules
+          -w /sbin/insmod -p x -k kernel_modules
+          -w /sbin/rmmod -p x -k kernel_modules
+          -w /sbin/modprobe -p x -k kernel_modules
+        dest: /etc/audit/rules.d/hardening.rules
+    
+    - name: Restart auditd
+      service:
+        name: auditd
+        state: restarted
+        enabled: yes
+    
+    # ============================================
+    # 7. SYSCTL HARDENING
+    # ============================================
+    
+    - name: Configure kernel parameters
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        sysctl_set: yes
+        reload: yes
+      loop:
+        # IP Forwarding
+        - { name: 'net.ipv4.ip_forward', value: '0' }
+        - { name: 'net.ipv6.conf.all.forwarding', value: '0' }
+        
+        # Source routing
+        - { name: 'net.ipv4.conf.all.accept_source_route', value: '0' }
+        - { name: 'net.ipv6.conf.all.accept_source_route', value: '0' }
+        
+        # ICMP redirects
+        - { name: 'net.ipv4.conf.all.accept_redirects', value: '0' }
+        - { name: 'net.ipv6.conf.all.accept_redirects', value: '0' }
+        - { name: 'net.ipv4.conf.all.send_redirects', value: '0' }
+        
+        # Secure redirects
+        - { name: 'net.ipv4.conf.all.secure_redirects', value: '0' }
+        
+        # Ignore ICMP
+        - { name: 'net.ipv4.icmp_echo_ignore_all', value: '0' }
+        - { name: 'net.ipv4.icmp_echo_ignore_broadcasts', value: '1' }
+        
+        # SYN cookies
+        - { name: 'net.ipv4.tcp_syncookies', value: '1' }
+        
+        # Log suspicious packets
+        - { name: 'net.ipv4.conf.all.log_martians', value: '1' }
+        
+        # Ignore bogus ICMP errors
+        - { name: 'net.ipv4.icmp_ignore_bogus_error_responses', value: '1' }
+        
+        # Reverse path filtering
+        - { name: 'net.ipv4.conf.all.rp_filter', value: '1' }
+        
+        # TCP timestamps
+        - { name: 'net.ipv4.tcp_timestamps', value: '0' }
+        
+        # IPv6 disable (if not needed)
+        - { name: 'net.ipv6.conf.all.disable_ipv6', value: '1' }
+        - { name: 'net.ipv6.conf.default.disable_ipv6', value: '1' }
+    
+    # ============================================
+    # 8. FILE PERMISSIONS
+    # ============================================
+    
+    - name: Set secure permissions on sensitive files
+      file:
+        path: "{{ item }}"
+        mode: '0600'
+      loop:
+        - /etc/ssh/sshd_config
+        - /etc/shadow
+        - /etc/gshadow
+      ignore_errors: yes
+    
+    - name: Set permissions on cron
+      file:
+        path: "{{ item }}"
+        mode: '0700'
+      loop:
+        - /etc/cron.hourly
+        - /etc/cron.daily
+        - /etc/cron.weekly
+        - /etc/cron.monthly
+      ignore_errors: yes
+    
+    # ============================================
+    # 9. USER MANAGEMENT
+    # ============================================
+    
+    - name: Lock unused accounts
+      user:
+        name: "{{ item }}"
+        password_lock: yes
+      loop:
+        - games
+        - news
+        - uucp
+      ignore_errors: yes
+    
+    - name: Set password aging
+      lineinfile:
+        path: /etc/login.defs
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      loop:
+        - { regexp: '^PASS_MAX_DAYS', line: 'PASS_MAX_DAYS   90' }
+        - { regexp: '^PASS_MIN_DAYS', line: 'PASS_MIN_DAYS   1' }
+        - { regexp: '^PASS_MIN_LEN', line: 'PASS_MIN_LEN    14' }
+        - { regexp: '^PASS_WARN_AGE', line: 'PASS_WARN_AGE   7' }
+    
+    # ============================================
+    # 10. DISABLE UNNECESSARY SERVICES
+    # ============================================
+    
+    - name: Disable unnecessary services
+      service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      loop:
+        - avahi-daemon
+        - cups
+        - bluetooth
+      ignore_errors: yes
+    
+    # ============================================
+    # 11. SECURE SHARED MEMORY
+    # ============================================
+    
+    - name: Secure shared memory
+      mount:
+        path: /run/shm
+        src: tmpfs
+        fstype: tmpfs
+        opts: defaults,noexec,nodev,nosuid
+        state: mounted
+    
+    # ============================================
+    # 12. CONFIGURE AUTOMATIC SECURITY UPDATES
+    # ============================================
+    
+    - name: Enable unattended upgrades
+      apt:
+        name: unattended-upgrades
+        state: present
+    
+    - name: Configure unattended upgrades
+      lineinfile:
+        path: /etc/apt/apt.conf.d/50unattended-upgrades
+        regexp: '.*"${distro_id}:${distro_codename}-security";'
+        line: '        "${distro_id}:${distro_codename}-security";'
+    
+    # ============================================
+    # 13. MYSQL/MARIADB HARDENING (if present)
+    # ============================================
+    
+    - name: Bind MySQL to localhost only
+      lineinfile:
+        path: /etc/mysql/mariadb.conf.d/50-server.cnf
+        regexp: '^bind-address'
+        line: 'bind-address = 127.0.0.1'
+      when: ansible_facts.packages['mariadb-server'] is defined or ansible_facts.packages['mysql-server'] is defined
+      notify: restart mysql
+    
+    - name: Remove anonymous MySQL users
+      shell: mysql -e "DELETE FROM mysql.user WHERE User=''; FLUSH PRIVILEGES;"
+      ignore_errors: yes
+    
+    - name: Remove MySQL test database
+      shell: mysql -e "DROP DATABASE IF EXISTS test; FLUSH PRIVILEGES;"
+      ignore_errors: yes
+    
+    # ============================================
+    # 14. APACHE/NGINX HARDENING
+    # ============================================
+    
+    - name: Hide Apache version
+      lineinfile:
+        path: /etc/apache2/conf-available/security.conf
+        regexp: '^ServerTokens'
+        line: 'ServerTokens Prod'
+      when: ansible_facts.packages['apache2'] is defined
+      notify: restart apache
+    
+    - name: Hide Apache signature
+      lineinfile:
+        path: /etc/apache2/conf-available/security.conf
+        regexp: '^ServerSignature'
+        line: 'ServerSignature Off'
+      when: ansible_facts.packages['apache2'] is defined
+      notify: restart apache
+    
+    - name: Hide Nginx version
+      lineinfile:
+        path: /etc/nginx/nginx.conf
+        regexp: 'server_tokens'
+        line: '        server_tokens off;'
+        insertafter: 'http {'
+      when: ansible_facts.packages['nginx'] is defined
+      notify: restart nginx
+    
+  handlers:
+    - name: restart mysql
+      service:
+        name: mysql
+        state: restarted
+    
+    - name: restart apache
+      service:
+        name: apache2
+        state: restarted
+    
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
