@@ -192,7 +192,7 @@ class SecureFieldComparisonGUI:
         }
 
         self.update_status(
-            "🔍 Analyzing field discrepancies and potential renames...")
+            "Analyzing field discrepancies and potential renames...")
 
         # Track which dev fields have been matched
         matched_dev_fields = set()
@@ -451,7 +451,7 @@ class SecureFieldComparisonGUI:
         # Security notice with softer colors
         security_notice = tk.Label(
             self.root,
-            text="🛡️ Compare two exports, one from production and the other from dev, to show changes in Log Fields🛡️",
+            text="Compare two exports, one from production and the other from dev, to show changes in Log Fields🛡️",
             font=('Helvetica', 9),
             bg=self.COLORS['success'],
             fg='white',
@@ -466,7 +466,7 @@ class SecureFieldComparisonGUI:
         # File selection with beautiful styling
         file_frame = tk.LabelFrame(
             main_frame,
-            text="  📁 File Selection  ",
+            text="File Selection  ",
             font=('Helvetica', 13, 'bold'),
             bg=self.COLORS['secondary_bg'],
             fg=self.COLORS['text_primary'],
@@ -557,7 +557,7 @@ class SecureFieldComparisonGUI:
         # Development Browse Button with BLACK TEXT
         self.dev_browse_btn = tk.Button(
             file_frame,
-            text="📂 Browse",
+            text="Browse",
             command=self.on_dev_browse_click,
             bg=self.BTN_DEFAULT_BG,
             fg=self.BTN_TEXT_COLOR,
@@ -585,7 +585,7 @@ class SecureFieldComparisonGUI:
         # Compare button with BLACK TEXT
         self.compare_button = tk.Button(
             button_frame,
-            text="🔍 Compare Files",
+            text="Compare Files",
             command=self.on_compare_click,
             bg=self.BTN_DEFAULT_BG,
             fg=self.BTN_TEXT_COLOR,
@@ -609,7 +609,7 @@ class SecureFieldComparisonGUI:
         # Export button with BLACK TEXT
         self.export_button = tk.Button(
             button_frame,
-            text="📊 Export Reports",
+            text="Export Reports",
             command=self.on_export_click,
             bg=self.BTN_DEFAULT_BG,
             fg=self.BTN_TEXT_COLOR,
@@ -724,7 +724,7 @@ class SecureFieldComparisonGUI:
         self.field_analysis_tab = tk.Frame(
             self.notebook, bg=self.COLORS['secondary_bg'])
         self.notebook.add(self.field_analysis_tab,
-                          text="🔍 Detailed Field Analysis")
+                          text="Detailed Field Analysis")
 
         self.field_analysis_text = scrolledtext.ScrolledText(
             self.field_analysis_tab,
@@ -742,7 +742,7 @@ class SecureFieldComparisonGUI:
         # Tab 4: Metrics
         self.metrics_tab = tk.Frame(
             self.notebook, bg=self.COLORS['secondary_bg'])
-        self.notebook.add(self.metrics_tab, text="📈 Metrics")
+        self.notebook.add(self.metrics_tab, text="Metrics")
 
         self.create_metrics_view()
 
@@ -838,11 +838,11 @@ class SecureFieldComparisonGUI:
                  bg=self.COLORS['secondary_bg']).pack(side='left', padx=(0, 10))
 
         legends = [
-            ('🔄 Potential Rename', '#E8F5E9'),
-            ('❌ Missing', '#FFEBEE'),
-            ('➕ New Field', '#E3F2FD'),
-            ('⚠️ Value Diff', '#FFF3E0'),
-            ('✅ Exact Match', '#F1F8E9')
+            ('Potential Rename', '#E8F5E9'),
+            ('Missing', '#FFEBEE'),
+            ('New Field', '#E3F2FD'),
+            ('Value Diff', '#FFF3E0'),
+            ('Exact Match', '#F1F8E9')
         ]
 
         for text, color in legends:
@@ -967,12 +967,12 @@ class SecureFieldComparisonGUI:
     def compare_files_secure(self):
         """Securely compare files with COMBINED field and value analysis"""
         try:
-            self.update_status("🔄 Loading files...")
+            self.update_status("Loading files...")
 
             df1 = self.safe_file_read(self.prod_file.get())
             df2 = self.safe_file_read(self.dev_file.get())
 
-            self.update_status("🔍 Validating columns...")
+            self.update_status("Validating columns...")
 
             if 'Field' not in df1.columns or 'Values' not in df1.columns:
                 self.root.after(0, lambda: messagebox.showerror(
@@ -1039,7 +1039,7 @@ class SecureFieldComparisonGUI:
                 missing_in_dev, missing_in_prod, values_prod, values_dev
             )
 
-            self.update_status("🔬 Comparing values for common fields...")
+            self.update_status("Comparing values for common fields...")
 
             # Compare values for COMMON fields
             value_comparisons = []
@@ -1061,13 +1061,13 @@ class SecureFieldComparisonGUI:
 
                 if is_exact_match:
                     exact_matches += 1
-                    status = "✅ EXACT MATCH"
+                    status = "EXACT MATCH"
                 elif similarity >= 0.9:
-                    status = "⚠️ MINOR DIFF"
+                    status = "MINOR DIFF"
                 elif similarity >= 0.7:
-                    status = "⚠️ MODERATE DIFF"
+                    status = "MODERATE DIFF"
                 else:
-                    status = "❌ MAJOR DIFF"
+                    status = "MAJOR DIFF"
 
                 value_comparisons.append({
                     'field': field,
@@ -1149,9 +1149,9 @@ class SecureFieldComparisonGUI:
             summary_msg = f"Comparison completed successfully!\n\n"
             summary_msg += f"Grade: {grade} ({grade_desc})\n"
             summary_msg += f"Overall Accuracy: {overall_accuracy:.1f}%\n\n"
-            summary_msg += f"🔄 Potential Renames: {len(field_analysis['potential_renames'])}\n"
-            summary_msg += f"❌ Truly Missing: {len(field_analysis['truly_missing_in_dev'])}\n"
-            summary_msg += f"➕ New Fields: {len(field_analysis['truly_missing_in_prod'])}"
+            summary_msg += f"Potential Renames: {len(field_analysis['potential_renames'])}\n"
+            summary_msg += f"Truly Missing: {len(field_analysis['truly_missing_in_dev'])}\n"
+            summary_msg += f"New Fields: {len(field_analysis['truly_missing_in_prod'])}"
 
             self.root.after(0, lambda: messagebox.showinfo(
                 "Success", summary_msg))
@@ -1211,7 +1211,7 @@ class SecureFieldComparisonGUI:
             dev_value = self.sanitize_string(str(rename['dev_value'])[:100])
 
             self.tree.insert('', 'end', values=(
-                '🔄 RENAME',
+                'RENAME',
                 prod_field,
                 prod_value,
                 dev_field,
@@ -1228,7 +1228,7 @@ class SecureFieldComparisonGUI:
             prod_value = self.sanitize_string(str(item['value'])[:100])
 
             self.tree.insert('', 'end', values=(
-                '❌ MISSING',
+                'MISSING',
                 prod_field,
                 prod_value,
                 '(not in dev)',
@@ -1245,7 +1245,7 @@ class SecureFieldComparisonGUI:
             dev_value = self.sanitize_string(str(item['value'])[:100])
 
             self.tree.insert('', 'end', values=(
-                '➕ NEW',
+                'NEW',
                 '(not in prod)',
                 '---',
                 dev_field,
@@ -1282,7 +1282,7 @@ class SecureFieldComparisonGUI:
             value = self.sanitize_string(str(vc['prod_value'])[:100])
 
             self.tree.insert('', 'end', values=(
-                '✅ EXACT',
+                'EXACT',
                 field,
                 value,
                 field,
@@ -1315,34 +1315,34 @@ class SecureFieldComparisonGUI:
 COMPREHENSIVE FIELD AND VALUE COMPARISON SUMMARY
 {'='*80}
 
-🎯 OVERALL GRADE: {metrics['grade']} ({metrics['grade_description']}) - {metrics['overall_accuracy']:.2f}%
+OVERALL GRADE: {metrics['grade']} ({metrics['grade_description']}) - {metrics['overall_accuracy']:.2f}%
 
-📊 FIELD STATISTICS:
+FIELD STATISTICS:
   • Production Fields:     {counts['prod_fields']}
   • Development Fields:    {counts['dev_fields']}
   • Common Fields:         {counts['common_fields']}
   
-📋 FIELD DISCREPANCY ANALYSIS:
-  • Potential Renames:     {counts['potential_renames']} 🔄
-  • Truly Missing in Dev:  {counts['truly_missing_dev']} ❌
-  • New Fields in Dev:     {counts['truly_missing_prod']} ➕
-  • Suspicious Cases:      {counts['suspicious_fields']} ⚠️
+FIELD DISCREPANCY ANALYSIS:
+  • Potential Renames:     {counts['potential_renames']}
+  • Truly Missing in Dev:  {counts['truly_missing_dev']}
+  • New Fields in Dev:     {counts['truly_missing_prod']}
+  • Suspicious Cases:      {counts['suspicious_fields']}
 
-📈 VALUE COMPARISON (Common Fields):
+VALUE COMPARISON (Common Fields):
   • Total Compared:        {counts['total_compared']}
   • Exact Matches:         {counts['exact_matches']} ({metrics['exact_match_rate']:.1f}%)
   • Value Differences:     {counts['total_compared'] - counts['exact_matches']}
 
-🎯 ACCURACY METRICS:
+ACCURACY METRICS:
   • Field Coverage:        {metrics['field_coverage']:.2f}%
   • Exact Match Rate:      {metrics['exact_match_rate']:.2f}%
   • Average Similarity:    {metrics['avg_similarity']:.2f}%
   • Overall Accuracy:      {metrics['overall_accuracy']:.2f}%
 
-💡 TIP: Check the "Side-by-Side Field Comparison" tab for a complete table view
+TIP: Check the "Side-by-Side Field Comparison" tab for a complete table view
         of all differences, including potential renames!
 
-⏰ Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 {'='*80}
         """
         self.summary_text.insert(1.0, summary)
@@ -1360,7 +1360,7 @@ This analysis combines missing field detection with intelligent rename detection
 based on both field name similarity and value similarity.
 
 {'='*80}
-🔄 POTENTIAL RENAMES ({len(field_analysis['potential_renames'])})
+POTENTIAL RENAMES ({len(field_analysis['potential_renames'])})
 {'='*80}
 
 Fields that appear to have been renamed based on value similarity analysis.
@@ -1396,11 +1396,11 @@ Fields that appear to have been renamed based on value similarity analysis.
                 field_analysis_text += f"  Dev:  {dev_preview}...\n"
                 field_analysis_text += f"\n{'='*80}\n"
         else:
-            field_analysis_text += "✅ No potential renames detected.\n\n"
+            field_analysis_text += "No potential renames detected.\n\n"
 
         field_analysis_text += f"""
 {'='*80}
-❌ TRULY MISSING IN DEV ({len(field_analysis['truly_missing_in_dev'])})
+TRULY MISSING IN DEV ({len(field_analysis['truly_missing_in_dev'])})
 {'='*80}
 
 Fields that exist in production but not in development, with no strong rename match.
@@ -1415,7 +1415,7 @@ Fields that exist in production but not in development, with no strong rename ma
                 field_analysis_text += f"       Value: {safe_value}\n"
                 field_analysis_text += f"       Best Match Score: {item['best_match_score']*100:.1f}%\n\n"
         else:
-            field_analysis_text += "  ✅ None!\n\n"
+            field_analysis_text += "None!\n\n"
 
         field_analysis_text += f"""
 {'='*80}
@@ -1433,11 +1433,11 @@ Fields that exist in development but not in production.
                 field_analysis_text += f"  {i:3}. {safe_field}\n"
                 field_analysis_text += f"       Value: {safe_value}\n\n"
         else:
-            field_analysis_text += "  ✅ None!\n\n"
+            field_analysis_text += "None!\n\n"
 
         field_analysis_text += f"""
 {'='*80}
-⚠️  SUSPICIOUS CASES ({len(field_analysis['suspicious_fields'])})
+SUSPICIOUS CASES ({len(field_analysis['suspicious_fields'])})
 {'='*80}
 
 Fields with moderate similarity - manual review recommended.
@@ -1454,7 +1454,7 @@ Fields with moderate similarity - manual review recommended.
                 field_analysis_text += f"Values {item['value_similarity']*100:.1f}%\n"
                 field_analysis_text += f"Combined Score: {item['combined_score']*100:.1f}%\n\n"
         else:
-            field_analysis_text += "  ✅ None!\n\n"
+            field_analysis_text += "None!\n\n"
 
         self.field_analysis_text.insert(1.0, field_analysis_text)
 
@@ -1464,7 +1464,7 @@ Fields with moderate similarity - manual review recommended.
 
         # Update grade display
         self.grade_label.config(
-            text=f"🎯 Grade: {metrics['grade']} ({metrics['grade_description']}) - {metrics['overall_accuracy']:.1f}%",
+            text=f"Grade: {metrics['grade']} ({metrics['grade_description']}) - {metrics['overall_accuracy']:.1f}%",
             bg=metrics['grade_color'],
             fg='white'
         )
@@ -1512,7 +1512,7 @@ Fields with moderate similarity - manual review recommended.
 
             dir_path = self.safe_export_path(directory)
 
-            self.update_status("📝 Exporting reports...")
+            self.update_status("Exporting reports...")
 
             field_analysis = self.results['field_analysis']
 
@@ -1628,7 +1628,7 @@ Fields with moderate similarity - manual review recommended.
 
             files_msg = f"Reports exported to:\n{dir_path}\n\n"
             files_msg += "Files created:\n"
-            files_msg += f"• {side_by_side_file} (⭐ MAIN COMPARISON TABLE)\n"
+            files_msg += f"• {side_by_side_file} (MAIN COMPARISON TABLE)\n"
             files_msg += f"• {summary_file}\n"
             files_msg += f"• {field_analysis_file}\n"
             if field_analysis['potential_renames']:
