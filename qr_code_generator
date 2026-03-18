@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+import qrcode
+import sys
+import os
+import re
+
+def sanitize_filename(url):
+    name = url.replace("https://", "").replace("http://", "")
+    name = re.sub(r'[^a-zA-Z0-9]', '_', name).strip('_')
+    name = re.sub(r'_+', '_', name)
+    return name[:80] + "_qr.png"
+
+def main():
+    if len(sys.argv) < 2:
+        url = input("Enter URL: ").strip()
+    else:
+        url = sys.argv[1]
+
+    filename = sanitize_filename(url)
+    output = sys.argv[2] if len(sys.argv) > 2 else filename
+
+    img = qrcode.make(url)
+    img.save(output)
+    print(f"QR code saved to {os.path.abspath(output)}")
+
+if __name__ == "__main__":
+    main()
