@@ -31,7 +31,7 @@ drop tcp any any -> any 445 (msg:"[ALERT] PsExec Lateral Movement"; flow:to_serv
 drop tcp ![172.16.201.104,172.16.201.156] any -> any 5985 (msg:"[ALERT] Unauthorized WinRM Access"; flow:to_server; sid:2000011; rev:1; priority:1;)
 drop tcp ![172.16.201.104,172.16.201.156] any -> any 5986 (msg:"[ALERT] Unauthorized WinRM SSL Access"; flow:to_server; sid:2000012; rev:1; priority:1;)
 # WMI Remote Execution - DROP
-drop tcp any any -> any 135 (msg:"[ALERT] WMI Remote Execution Attempt"; flow:to_server,established; content:"|05|"; content:"|0b|"; distance:0; within:2; sid:2000013; rev:1; priority:1;)
+alert tcp any any -> any 135 (msg:"[ALERT] WMI Remote Execution Attempt - IWbemServices Bind"; flow:to_server,established; content:"|05 00 0b|"; depth:3; content:"|98 d0 ff 6b 12 a1 10 36 98 33 46 c3 f8 7e 34 5a|"; fast_pattern; offset:32; depth:48; sid:2000013; rev:3; classtype:policy-violation; priority:1;)
 # RDP from Workstation to Workstation - DROP
 drop tcp [172.16.201.165,172.16.201.166,172.16.201.167,172.16.201.168,172.16.201.169,172.16.201.171,172.16.201.172,172.16.201.173,172.16.201.174,172.16.201.175,172.16.201.177] any -> [172.16.201.165,172.16.201.166,172.16.201.167,172.16.201.168,172.16.201.169,172.16.201.171,172.16.201.172,172.16.201.173,172.16.201.174,172.16.201.175,172.16.201.177] 3389 (msg:"[ALERT] Workstation-to-Workstation RDP"; flow:to_server; sid:2000014; rev:1; priority:1;)
 # CREDENTIAL DUMPING - IMMEDIATE DROP
@@ -49,7 +49,7 @@ drop dns any any -> any 53 (msg:"[ALERT] DNS Tunneling Detected"; dns_query; con
 # Suspicious FTP Upload - DROP
 drop tcp $HOME_NET any -> !$HOME_NET 21 (msg:"[ALERT] FTP Data Exfiltration"; flow:to_server,established; content:"STOR"; http_method; sid:2000032; rev:1; priority:1;)
 # Base64 Encoded Data Exfil - DROP
-drop tcp any any -> !$HOME_NET any (msg:"[ALERT] Base64 Encoded Exfiltration"; flow:to_server; content:"base64"; nocase; dsize:>10000; sid:2000033; rev:1; priority:1;)
+alert tcp any any -> !$HOME_NET any (msg:"[ALERT] Base64 Encoded Exfiltration"; flow:to_server; content:"base64"; nocase; dsize:>10000; sid:2000033; rev:1; priority:1;)
 # EXPLOIT ATTEMPTS - DROP
 # EternalBlue/MS17-010 - REJECT
 reject tcp any any -> any 445 (msg:"[ALERT] EternalBlue Exploit Attempt"; flow:to_server; content:"|00 00 00 31 00|"; content:"|00 00 00 00 00|"; distance:0; within:5; sid:2000040; rev:1; priority:1;)
@@ -538,7 +538,7 @@ drop tcp any any -> any 135 (msg:"[ALERT] WMI - DCOM Lateral Movement"; flow:to_
 alert tcp any any -> any 135 (msg:"[ALERT] WMI - Remote WMI Query"; flow:to_server,established; content:"WBEM"; nocase; threshold:type threshold, track by_src, count 5, seconds 60; sid:2016003; rev:1; classtype:attempted-recon; priority:1;)
 drop tcp any any -> any 135 (msg:"[ALERT] WMI - IWbemLevel1Login"; flow:to_server,established; content:"IWbemLevel1Login"; nocase; sid:2016004; rev:1; classtype:trojan-activity; priority:1;)
 # Dynamic RPC ports for WMI (49152-65535)
-drop tcp any any -> any [49152:65535] (msg:"[ALERT] WMI - High Port DCOM Activity"; flow:to_server,established; content:"|05 00|"; depth:2; threshold:type threshold, track by_src, count 10, seconds 60; sid:2016005; rev:1; classtype:trojan-activity; priority:1;)
+alert tcp any any -> any [49152:65535] (msg:"[ALERT] WMI - High Port DCOM Activity"; flow:to_server,established; content:"|05 00|"; depth:2; threshold:type threshold, track by_src, count 10, seconds 60; sid:2016005; rev:1; classtype:trojan-activity; priority:1;)
 # WMIC.EXE COMMAND EXECUTION
 drop tcp any any -> any 445 (msg:"[ALERT] WMI - WMIC Remote Execution"; flow:to_server,established; content:"wmic"; nocase; sid:2016010; rev:1; classtype:trojan-activity; priority:1;)
 drop tcp any any -> any 445 (msg:"[ALERT] WMI - WMIC Process Call Create"; flow:to_server,established; content:"wmic"; nocase; content:"process"; nocase; distance:0; content:"call"; nocase; distance:0; content:"create"; nocase; distance:0; sid:2016011; rev:1; classtype:trojan-activity; priority:1;)
@@ -923,7 +923,7 @@ alert tcp any any -> any any (msg:"[ALERT] Slow Reconnaissance - Periodic Access
 # PROTOCOL ABUSE DETECTION
 # SID Range: 2022xxx
 # ICMP with large payloads (tunneling)
-drop icmp any any -> any any (msg:"[ALERT] ICMP - Large Payload Tunneling"; dsize:>100; sid:2022001; rev:1; classtype:policy-violation; priority:1;)
+alert icmp any any -> any any (msg:"[ALERT] ICMP - Large Payload Tunneling"; dsize:>100; sid:2022001; rev:1; classtype:policy-violation; priority:1;)
 # ICMP excessive traffic
 alert icmp any any -> any any (msg:"[ALERT] ICMP - Excessive Traffic (Possible Tunnel)"; threshold:type threshold, track by_src, count 1000, seconds 60; sid:2022002; rev:1; classtype:policy-violation; priority:2;)
 # SMB from unusual sources with valid auth
@@ -974,7 +974,7 @@ alert tcp $HOME_NET any -> !$HOME_NET any (msg:"[ALERT] Network Beaconing Detect
 # PsExec with NTLM hash (no password)
 drop tcp any any -> any 445 (msg:"[ALERT] Pass-the-Hash - PsExec Execution"; flow:to_server,established; content:"|ff|SMB"; depth:5; content:"NTLMSSP"; distance:0; content:"PSEXESVC"; nocase; distance:0; sid:2028001; rev:1; classtype:credential-theft; priority:1;)
 # SMB authentication without Kerberos (PtH indicator)
-drop tcp any any -> any 445 (msg:"[ALERT] Pass-the-Hash - NTLM-only Authentication"; flow:to_server,established; content:"NTLMSSP"; content:"|01 00 00 00|"; distance:0; sid:2028002; rev:1; classtype:credential-theft; priority:1;)
+alert tcp any any -> any 445 (msg:"[ALERT] Pass-the-Hash - NTLM-only Authentication"; flow:to_server,established; content:"NTLMSSP"; content:"|01 00 00 00|"; distance:0; sid:2028002; rev:1; classtype:credential-theft; priority:1;)
 # Rapid NTLM authentication to multiple hosts (PtH lateral movement)
 drop tcp any any -> any 445 (msg:"[ALERT] Pass-the-Hash - Rapid Multi-Host Authentication"; flow:to_server,established; content:"NTLMSSP"; threshold:type threshold, track by_src, count 10, seconds 60; sid:2028003; rev:1; classtype:credential-theft; priority:1;)
 # SMB session with empty password (hash used)
@@ -1108,7 +1108,7 @@ drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - SAM Registry Hive Ac
 # SYSTEM registry hive
 drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - SYSTEM Registry Hive"; flow:to_server,established; content:"\\SYSTEM"; nocase; content:"\\CurrentControlSet"; nocase; distance:0; sid:2028131; rev:1; classtype:credential-theft; priority:1;)
 # reg save command
-drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - reg save SAM"; flow:to_server,established; content:"reg"; nocase; content:"save"; nocase; distance:0; content:"SAM"; nocase; distance:0; sid:2028132; rev:1; classtype:credential-theft; priority:1;
+drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - reg save SAM"; flow:to_server,established; content:"reg"; nocase; content:"save"; nocase; distance:0; content:"SAM"; nocase; distance:0; sid:2028132; rev:1; classtype:credential-theft; priority:1;)
 drop tcp any any -> any 445 (msg:"[ALERT] Hash Extraction - reg save SYSTEM"; flow:to_server,established; content:"reg"; nocase; content:"save"; nocase; distance:0; content:"SYSTEM"; nocase; distance:0; sid:2028133; rev:1; classtype:credential-theft; priority:1;)
 # NTDS.DIT EXTRACTION (Domain Hashes)
 # NTDS.dit file access
